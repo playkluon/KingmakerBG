@@ -80,6 +80,8 @@ export function setupGame(options: SetupOptions): GameState {
       candidatesRevealed: [],
       candidatesRunning: [],
       votersRevealed: [],
+      bids: {},
+      camps: {},
     },
     players,
     drawPiles,

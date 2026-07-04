@@ -59,6 +59,8 @@ export type { AuctionMode, GameAction, PlayerAction, SystemAction } from './type
 export { isPlayerAction } from './types/actions';
 export type {
   ActionLogEntry,
+  AuctionBidState,
+  CampState,
   DrawPiles,
   EffectDescriptor,
   GameState,
@@ -67,6 +69,20 @@ export type {
   RoundResultSummary,
   RoundState,
 } from './types/state';
+export type {
+  AgendaCondition,
+  CandidateAbility,
+  CandidateCard,
+  CardCatalog,
+  ElectionEffect,
+  EventCard,
+  IssueCard,
+  PolicyMove,
+  PromiseCard,
+  PromiseEffect,
+  SecretAgendaCard,
+  VoterCard,
+} from './types/cards';
 
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
 export { getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';

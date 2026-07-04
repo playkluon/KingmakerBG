@@ -139,7 +139,7 @@ describe('§17 의제 조건 유형', () => {
     'reputationAtLeast',
     'reputationRankAtMost',
     'remainingMoneyAtLeast',
-  ];
+  ] as const;
 
   it('의제 16장이 §17의 조건 유형만 사용한다', () => {
     AGENDAS.forEach((a) => {

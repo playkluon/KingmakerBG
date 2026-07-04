@@ -13,6 +13,9 @@ export { PROMISES } from './promises';
 export { VOTERS } from './voters';
 export { VOTER_EVENTS } from './voterEvents';
 
+// ── 엔진 연동 ───────────────────────────────────────────────
+export { buildCardCatalog } from './catalog';
+
 // ── 스키마·타입 ─────────────────────────────────────────────
 export {
   AgendaConditionSchema,

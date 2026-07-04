@@ -106,12 +106,18 @@
 목표: **UI 없이 엔진 테스트만으로 4인 1라운드가 끝까지 플레이된다.** 브리프의 첫 목표(§27).
 스킬 4개를 순서대로, 각각 테스트 통과 후 다음으로.
 
-### 3-A. 경매·공약 (skills/auction-promise)
-- [ ] placeBid/confirmAuctionBids, 동시 공개, 상위 3 출마
-- [ ] 동점 3단계(후원자 수→rep→id), 전액 소비/절반 환급(내림)
-- [ ] majorBacker / coBacker(2+) / organizer(6-7인) 배정
-- [ ] 공약 3장 제시 → selectPromise, autoSelectPromises fallback, 즉시 효과 5유형(1회 제한)
-- [ ] setAuctionMode(공개 순차 = 디버그), generateRandomBids
+### 3-A. 경매·공약 (skills/auction-promise) ✅ 2026-07-05
+- [x] placeBid/confirmAuctionBids, 동시 공개, 상위 3 출마
+- [x] 동점 3단계(후원자 수→rep→id), 전액 소비/절반 환급(내림)
+- [x] majorBacker / coBacker(2+) / organizer(6-7인) 배정
+- [x] 공약 3장 제시 → selectPromise, autoSelectPromises fallback, 즉시 효과 중 backerReward 적용(1회 제한)
+- [ ] ~~setAuctionMode(공개 순차 = 디버그), generateRandomBids~~ — setAuctionMode는 Phase 1에서 이미 구현됨. generateRandomBids는 "디버그 전용"이라 실사용처가 생기기 전까지 스텁 유지 (Phase 7 밸런스 시뮬레이션에서 필요해지면 구현)
+
+구현 노트 / 스코프 조정:
+- **엔진에 CardCatalog 개념을 새로 추가함** — selectPromise가 majorBacker에게 즉시 보상(backerReward)을 주려면 "카드 내용"이 필요한데, 지금까지 엔진은 카드 ID만 다뤘다. `packages/engine/src/types/cards.ts`에 카드 콘텐츠의 엔진 관점 타입(제네릭 string 필드)을 새로 정의하고, `reduce(state, action, catalog)`로 시그니처를 확장했다. packages/data는 여전히 엔진에 의존하지 않고, 구조적 타이핑으로만 호환된다(`packages/data/src/catalog.ts`의 `buildCardCatalog()`가 그 접점).
+- **공약 효과 5유형 중 즉시 적용은 backerReward만** — extraVotes류는 Skill 6(투표 집계), backerInfluence/backerPressureToken은 Skill 5(캠페인 집계)가 소비 시점에 카탈로그를 조회해 처리한다. "한 후보/공약 조합당 1회"는 promiseId가 한 번만 설정 가능하다는 사실로 자연히 보장된다.
+- **majorBacker 없는 출마 후보** 시나리오(입찰자가 3명 미만일 때)를 실제로 테스트로 재현·검증함 — autoSelectPromises가 정확히 그 캠프만 채우고 나머지는 그대로 둔다.
+- **타입 체크 인프라 추가**: 테스트 파일은 `tsc build`(src만 포함) 대상이 아니라 vitest(esbuild, 타입 미검증)로만 돌고 있었다는 걸 발견 — `tsconfig.typecheck.json` + `pnpm typecheck` 스크립트를 engine/data에 추가해 테스트 파일도 엄격 모드로 타입 검증되게 했다. 이 과정에서 Phase 2 스키마의 태그/그룹 enum이 실수로 `string`으로 넓혀져 있던 것도 발견해 리터럴 유니온으로 고쳤다(엔진과의 구조적 호환은 유지— 좁은 타입은 넓은 타입에 항상 대입 가능).
 
 ### 3-B. 유권자·캠페인 (skills/voters-campaign)
 - [ ] 통제 판정(단독 1등만), assignVoterChoice(무료·재배치·마지막 적용)

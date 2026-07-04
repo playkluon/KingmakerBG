@@ -5,7 +5,7 @@ import { reduce } from '../src/reducer';
 import { setupGame } from '../src/setup';
 import type { GameAction } from '../src/types/actions';
 import type { GameState } from '../src/types/state';
-import { testDecks } from './fixtures';
+import { emptyCatalog, testDecks } from './fixtures';
 
 const players = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
 
@@ -15,7 +15,7 @@ function playToAuction(seed: number): { state: GameState; log: unknown[] } {
   const sequence: GameAction[] = [{ type: 'startGame' }, { type: 'runUntilPlayerAction' }];
   const log: unknown[] = [];
   for (const action of sequence) {
-    const result = reduce(state, action);
+    const result = reduce(state, action, emptyCatalog());
     if (!result.ok) throw new Error(`시퀀스 재생 실패: ${result.reason}`);
     state = result.state;
     log.push(...result.log);
@@ -48,7 +48,7 @@ describe('결정성 재생 (부록 A-5)', () => {
 
   it('runUntilPlayerAction은 이미 결정 지점이어도 실패하지 않고 빈 로그로 성공한다', () => {
     const { state } = playToAuction(2026);
-    const result = reduce(state, { type: 'runUntilPlayerAction' });
+    const result = reduce(state, { type: 'runUntilPlayerAction' }, emptyCatalog());
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.log).toHaveLength(0);

@@ -34,9 +34,28 @@ export interface PlayerState {
   candidateEventHand: EventId[];
 }
 
+/** 플레이어 1명의 경매 입찰 상태 (§8) */
+export interface AuctionBidState {
+  /** 후보별 배분액. 확정 전까지 재제출 시 통째로 교체된다 */
+  allocations: Partial<Record<CandidateId, number>>;
+  confirmed: boolean;
+}
+
+/** 출마 후보 1명의 캠프 구성 (§3, §8, §9) */
+export interface CampState {
+  majorBacker: PlayerId | null;
+  coBacker: PlayerId | null;
+  /** 6-7인 전용. 4-5인 게임에서는 항상 null (§3) */
+  organizer: PlayerId | null;
+  /** 제시된 공약 후보 3장 */
+  promiseOptions: PromiseId[];
+  /** majorBacker(또는 autoSelectPromises)가 확정한 공약 */
+  promiseId: PromiseId | null;
+}
+
 /**
  * 라운드 단위로 리셋되는 상태.
- * 경매·공약·캠페인·단일화·투표 관련 필드는 Skill 4~7(auction-promise 등)이 추가한다.
+ * 캠페인·단일화·투표 관련 필드는 Skill 5~7이 추가한다.
  */
 export interface RoundState {
   /** 1-based 라운드 번호 */
@@ -46,6 +65,10 @@ export interface RoundState {
   /** 경매 정산 후 확정되는 출마 후보 3명 (§8) */
   candidatesRunning: CandidateId[];
   votersRevealed: VoterId[];
+  /** 좌석별 입찰 상태. 부록 A-3: 마스킹 시 confirmed만 남기고 allocations는 제거해야 한다 */
+  bids: Partial<Record<PlayerId, AuctionBidState>>;
+  /** 출마 후보 id를 키로 하는 캠프 구성 (경매 정산 후 채워짐) */
+  camps: Partial<Record<CandidateId, CampState>>;
 }
 
 /** 셔플된 카드 풀의 남은 뭉치. Phase 1은 실제 카드 데이터 없이 placeholder ID로 채운다 */

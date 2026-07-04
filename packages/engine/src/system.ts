@@ -1,16 +1,17 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // 시스템 액션(§19) 처리 — runSystemStep, runUntilPlayerAction, advancePhase 및 나머지 시스템 액션.
-// 이 파일은 Skill 4~7이 실제 규칙으로 교체하기 전까지 대부분 스텁(빈 구현 + TODO)이다.
+// resolveAuction/autoSelectPromises는 Skill 4(rules/auction.ts, rules/promise.ts)가 실제 규칙을 제공한다.
+// 나머지(generateRandomBids, revealVoters, runUnificationTest, resolveVoting, resolvePolicy, scoreRound)는
+// Skill 5~7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
 import { getPlayerCountConfig, INCOME_MONEY, INCOME_ORGANIZATION } from './constants';
 import { appendLog, createLogEntry } from './log';
 import { AUTO_PHASE_ACTION, getNextPhase, PHASES, SYSTEM_ACTION_PHASE } from './phases';
 import type { AutoActionType } from './phases';
+import { applyResolveAuctionAction } from './rules/auction';
+import { applyAutoSelectPromisesAction } from './rules/promise';
+import type { ReduceResult } from './result';
 import type { AuctionMode, SystemAction } from './types/actions';
 import type { ActionLogEntry, EffectDescriptor, GameState } from './types/state';
-
-export type ReduceResult =
-  | { ok: true; state: GameState; log: ActionLogEntry[] }
-  | { ok: false; reason: string };
 
 const ok = (state: GameState, entry: ActionLogEntry): ReduceResult => ({ ok: true, state, log: [entry] });
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
@@ -43,9 +44,11 @@ export function applySystemAction(state: GameState, action: SystemAction): Reduc
       return applyRunSystemStep(state);
     case 'runUntilPlayerAction':
       return applyRunUntilPlayerAction(state);
-    case 'generateRandomBids':
     case 'resolveAuction':
+      return applyResolveAuctionAction(state);
     case 'autoSelectPromises':
+      return applyAutoSelectPromisesAction(state);
+    case 'generateRandomBids':
     case 'revealVoters':
     case 'runUnificationTest':
     case 'resolveVoting':
@@ -203,13 +206,15 @@ function applyNextRound(state: GameState): ReduceResult {
           candidatesRevealed: [],
           candidatesRunning: [],
           votersRevealed: [],
+          bids: {},
+          camps: {},
         },
   };
   return ok(next, entry);
 }
 
 /**
- * Skill 4~7이 실제 규칙으로 교체할 스텁.
+ * Skill 5~7이 실제 규칙으로 교체할 스텁.
  * 검증(phase 일치)은 실제로 수행하되, 내용은 TODO 로그만 남기고 다음 phase로 통과시킨다
  * — 그래야 phase 머신 전체가 콘텐츠 없이도 끝까지 걸을 수 있다 (Phase 1의 목적).
  */
@@ -237,9 +242,10 @@ function applyRunSystemStep(state: GameState): ReduceResult {
 
 /**
  * 자동 처리 가능한 phase를 연쇄 진행하고 플레이어 결정 지점에서 멈춘다 (§19).
- * 이미 결정 지점이거나 종료 상태여도 실패가 아니라 빈 로그로 성공 처리한다 — "진행" 버튼은 언제 눌러도 안전해야 한다.
+ * confirmAuctionBids·selectPromise 등 개별 액션은 자기 몫만 처리하고 멈춘다 —
+ * 그다음 자동 phase까지 이어서 진행하고 싶을 때 호출자가 이 함수(또는 runUntilPlayerAction 액션)를 별도로 호출한다.
  */
-function applyRunUntilPlayerAction(state: GameState): ReduceResult {
+export function runAutoPhases(state: GameState): { state: GameState; log: ActionLogEntry[] } {
   let current = state;
   const log: ActionLogEntry[] = [];
   // 무한 루프 방지 안전장치. 라운드당 자동 phase는 최대 9개 남짓이라 5라운드 기준으로도 충분히 크다.
@@ -256,5 +262,11 @@ function applyRunUntilPlayerAction(state: GameState): ReduceResult {
     log.push(...result.log);
   }
 
-  return { ok: true, state: current, log };
+  return { state: current, log };
+}
+
+/** 이미 결정 지점이거나 종료 상태여도 실패가 아니라 빈 로그로 성공 처리한다 — "진행" 버튼은 언제 눌러도 안전해야 한다. */
+function applyRunUntilPlayerAction(state: GameState): ReduceResult {
+  const { state: nextState, log } = runAutoPhases(state);
+  return { ok: true, state: nextState, log };
 }

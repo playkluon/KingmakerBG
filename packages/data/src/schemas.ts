@@ -3,13 +3,15 @@
 // 효과/조건은 자유 텍스트가 아니라 판별 가능한 유니온으로 정의한다 (SKILL.md 규칙).
 import { z } from 'zod';
 import type { AgendaId, CandidateId, EventId, IssueId, PromiseId, VoterId } from '@kingmakers/engine';
-import { POLICY_REACTION_TAGS, VOTER_GROUPS } from './tags';
+import { POLICY_REACTION_TAGS, VOTER_GROUPS, type PolicyReactionTag, type VoterGroupKey } from './tags';
 
 // ── 기본 도메인 스키마 ────────────────────────────────────────
 export const PolicyTrackIdSchema = z.enum(['economy', 'labor', 'society', 'industry', 'foreign']);
 export const PolicyDirectionSchema = z.union([z.literal(-1), z.literal(1)]);
-export const VoterGroupKeySchema = z.enum(VOTER_GROUPS as [string, ...string[]]);
-export const PolicyReactionTagSchema = z.enum(POLICY_REACTION_TAGS as [string, ...string[]]);
+// 리터럴 유니온을 그대로 보존한다 — string으로 넓히면 opposingTag() 등 좁은 타입을 요구하는 호출부가 깨진다.
+// (엔진의 CardCatalog 필드는 반대로 string으로 넓게 받으므로, 이 좁은 타입을 그대로 대입해도 호환된다.)
+export const VoterGroupKeySchema = z.enum(VOTER_GROUPS as [VoterGroupKey, ...VoterGroupKey[]]);
+export const PolicyReactionTagSchema = z.enum(POLICY_REACTION_TAGS as [PolicyReactionTag, ...PolicyReactionTag[]]);
 
 function idSchema<T extends string>(prefix: string) {
   return z.custom<T>((val) => typeof val === 'string' && val.startsWith(`${prefix}-`), {
