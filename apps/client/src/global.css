@@ -1,0 +1,13 @@
+/* 기반 스킬: skills/setup/SKILL.md */
+/* 전역 초기화 — 화면별 스타일은 CSS Modules로 작성한다 (CLAUDE.md 코딩 규칙) */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    'Pretendard Variable', Pretendard, 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  background: #f7f6f1;
+  color: #232b3a;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@kingmakers/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "순수 룰 엔진 — 외부 의존성 0 (CLAUDE.md 아키텍처 원칙)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0"
+  }
+}

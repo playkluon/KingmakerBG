@@ -23,13 +23,18 @@
 
 목표: `pnpm dev` 한 번으로 서버+클라이언트가 뜨고, 빈 테스트가 도는 뼈대.
 
-- [ ] pnpm-workspace.yaml + 루트 package.json (dev/build/test 스크립트)
-- [ ] tsconfig.base.json (strict), .gitignore, .env.example
-- [ ] packages/engine (의존성 0, vitest), packages/data
-- [ ] apps/server (Express + Socket.IO 부팅만), apps/client (Vite react-ts)
-- [ ] git 초기화 + 첫 커밋
+- [x] pnpm-workspace.yaml + 루트 package.json (dev/build/test 스크립트)
+- [x] tsconfig.base.json (strict), .gitignore, .env.example
+- [x] packages/engine (의존성 0, vitest), packages/data
+- [x] apps/server (Express + Socket.IO 부팅만), apps/client (Vite react-ts)
+- [x] git 초기화 + 첫 커밋
 
-**완료 조건**: `pnpm install && pnpm -r build && pnpm test` 통과, `pnpm dev`로 :3001/:5173 기동 + 소켓 연결 로그 확인.
+**완료 조건**: `pnpm install && pnpm -r build && pnpm test` 통과, `pnpm dev`로 :3001/:5173 기동 + 소켓 연결 로그 확인. ✅ 2026-07-04 통과
+
+구현 노트:
+- 서버 포트 변수는 `PORT`가 아니라 `SERVER_PORT` — 실행 환경(프리뷰/호스팅)이 PORT를 주입해 충돌했던 문제의 재발 방지
+- 클라이언트(Vite)는 워크스페이스 패키지를 dist(CJS)가 아니라 **TS 소스 alias**로 참조 (vite.config.ts) — CJS named export 인터롭 문제 회피
+- pnpm 11: esbuild 빌드 스크립트 허용을 pnpm-workspace.yaml `allowBuilds`에 명시
 
 > 착수 지시: "skills/setup/SKILL.md 대로 Phase 0 진행해줘"
 

@@ -1,0 +1,13 @@
+{
+  "name": "kingmakers",
+  "private": true,
+  "version": "0.1.0",
+  "description": "킹메이커스: 민심 경매 — 정치 브로커 온라인 보드게임",
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "pnpm build:libs && pnpm -r --parallel dev",
+    "build:libs": "pnpm --filter @kingmakers/engine build && pnpm --filter @kingmakers/data build",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  }
+}
