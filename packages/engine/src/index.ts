@@ -30,6 +30,7 @@ export {
   POLICY_TRACK_MIN,
   POLICY_TRACK_START,
   POLICY_TRACKS,
+  POLL_ENABLED,
   STARTING_MONEY,
   STARTING_ORGANIZATION,
   STARTING_REPUTATION,
@@ -65,6 +66,7 @@ export type {
   EffectDescriptor,
   GameState,
   PlayerState,
+  PolicyPressure,
   RoundHistoryEntry,
   RoundResultSummary,
   RoundState,
@@ -83,6 +85,9 @@ export type {
   SecretAgendaCard,
   VoterCard,
 } from './types/cards';
+
+// ── 규칙 함수 (서버·시뮬레이션·후속 스킬 재사용용) ─────────────
+export { computeVoterVotes, getVoterController } from './rules/voters';
 
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
 export { getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';

@@ -4,6 +4,7 @@
 // 카드 ID 목록은 호출자가 주입한다 — 실카드는 packages/data가, 엔진 자체 테스트는 buildPlaceholderIds가 공급한다.
 import { getPlayerCountConfig, STARTING_MONEY, STARTING_ORGANIZATION, STARTING_REPUTATION, STARTING_VICTORY_POINTS } from './constants';
 import { createRng, shuffle, type RngState } from './rng';
+import { createInitialRoundState } from './roundState';
 import type { PlayerId } from './types/ids';
 import type { DrawPiles, GameState, PlayerState } from './types/state';
 
@@ -74,15 +75,7 @@ export function setupGame(options: SetupOptions): GameState {
     rngState,
     phase: 'setup',
     maxRounds,
-    round: {
-      round: 1,
-      issueId: null,
-      candidatesRevealed: [],
-      candidatesRunning: [],
-      votersRevealed: [],
-      bids: {},
-      camps: {},
-    },
+    round: createInitialRoundState(1),
     players,
     drawPiles,
     auctionMode: 'simultaneousBlind',

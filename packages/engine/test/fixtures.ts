@@ -48,3 +48,48 @@ export function confirm(state: GameState, actor: PlayerId): GameState {
   if (!result.ok) throw new Error(`확정 실패(${actor}): ${result.reason}`);
   return result.state;
 }
+
+/**
+ * 정확히 4명이 참여해 campaignActions phase까지 도달한 상태를 만든다 (Skill 5+ 테스트 공용).
+ * 6/4/3/2로 서로 다른 후보에 입찰해 순위를 명확히 하고, 공약은 내용 없는 카탈로그로 아무거나 선택한다
+ * (공약 즉시 보상은 Skill 4에서 이미 검증됨 — 여기서는 campaignActions 진입 자체가 목적).
+ */
+export function setupAtCampaign(seed: number, playerNames: [string, string, string, string]): GameState {
+  let state = setupAtAuction(seed, playerNames);
+  const [c0, c1, c2, c3] = state.round.candidatesRevealed;
+  state = bid(state, 'player-0', { [c0!]: 6 });
+  state = bid(state, 'player-1', { [c1!]: 4 });
+  state = bid(state, 'player-2', { [c2!]: 3 });
+  state = bid(state, 'player-3', { [c3!]: 2 });
+  state = confirm(state, 'player-0');
+  state = confirm(state, 'player-1');
+  state = confirm(state, 'player-2');
+  state = confirm(state, 'player-3');
+
+  const toPromiseSelection = reduce(state, { type: 'runUntilPlayerAction' }, emptyCatalog());
+  if (!toPromiseSelection.ok) throw new Error('fixture 준비 실패: promiseSelection 진입');
+  state = toPromiseSelection.state;
+
+  for (const candidateId of [...state.round.candidatesRunning]) {
+    if (state.phase !== 'promiseSelection') break; // 마지막 선택 직후 자동으로 voterReveal로 넘어갔을 수 있다
+    const camp = state.round.camps[candidateId]!;
+    if (!camp.majorBacker) continue; // majorBacker 없는 캠프는 autoSelectPromises 몫
+    const picked = reduce(
+      state,
+      { type: 'selectPromise', actor: camp.majorBacker, candidateId, promiseId: camp.promiseOptions[0]! },
+      emptyCatalog(),
+    );
+    if (!picked.ok) throw new Error(`fixture 준비 실패: ${picked.reason}`);
+    state = picked.state;
+  }
+  if (state.phase === 'promiseSelection') {
+    // majorBacker 없는 캠프가 남아 있을 때만 필요 — 이미 전원 선택 완료 상태면 호출할 필요도, 자리도 없다
+    const autoFilled = reduce(state, { type: 'autoSelectPromises' }, emptyCatalog());
+    if (!autoFilled.ok) throw new Error('fixture 준비 실패: autoSelectPromises');
+    state = autoFilled.state;
+  }
+
+  const toCampaign = reduce(state, { type: 'runUntilPlayerAction' }, emptyCatalog());
+  if (!toCampaign.ok) throw new Error('fixture 준비 실패: campaignActions 진입');
+  return toCampaign.state;
+}

@@ -53,9 +53,15 @@ export interface CampState {
   promiseId: PromiseId | null;
 }
 
+/** 정책 트랙 1개에 쌓인 압박 총합 (§6) — 압박 액션과 공약의 backerPressureToken이 함께 쌓는다 */
+export interface PolicyPressure {
+  plus: number;
+  minus: number;
+}
+
 /**
  * 라운드 단위로 리셋되는 상태.
- * 캠페인·단일화·투표 관련 필드는 Skill 5~7이 추가한다.
+ * 단일화·투표 관련 필드는 Skill 6~7이 추가한다.
  */
 export interface RoundState {
   /** 1-based 라운드 번호 */
@@ -69,6 +75,22 @@ export interface RoundState {
   bids: Partial<Record<PlayerId, AuctionBidState>>;
   /** 출마 후보 id를 키로 하는 캠프 구성 (경매 정산 후 채워짐) */
   camps: Partial<Record<CandidateId, CampState>>;
+  /** §10: 유권자 카드별 · 플레이어별 누적 영향력. 단독 최고값 보유자가 controller다 */
+  voterInfluence: Partial<Record<VoterId, Partial<Record<PlayerId, number>>>>;
+  /** §10 배치(assignVoterChoice) 결과. 투표 전까지 재배치 가능 — 마지막 값이 적용된다 */
+  voterAssignments: Partial<Record<VoterId, CandidateId>>;
+  /** §11 광고(+2)·스캔들(-2)·조건지지(+1)로 누적되는 후보별 표 보정치 */
+  campaignVotes: Partial<Record<CandidateId, number>>;
+  /** §11 조건지지를 실행한 플레이어 목록(후보별) — §15 "조건지지 성공" 채점에 쓰인다 */
+  conditionalSupporters: Partial<Record<CandidateId, PlayerId[]>>;
+  /** §6 정책 압박 누적 — 압박 액션과 공약 backerPressureToken 효과가 함께 쌓는다 */
+  policyPressure: Record<PolicyTrackId, PolicyPressure>;
+  /** §11 캠페인 액션 라운드로빈 순서 (좌석 순, campaignActions 진입 시 고정) */
+  campaignTurnOrder: PlayerId[];
+  /** campaignTurnOrder 안에서 현재 차례의 인덱스 */
+  campaignActiveIndex: number;
+  /** 플레이어별 이번 라운드 사용한 캠페인 액션 수 (최대 2, assignVoterChoice는 포함 안 됨) */
+  campaignActionsUsed: Partial<Record<PlayerId, number>>;
 }
 
 /** 셔플된 카드 풀의 남은 뭉치. Phase 1은 실제 카드 데이터 없이 placeholder ID로 채운다 */

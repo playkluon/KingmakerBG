@@ -1,14 +1,16 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // 시스템 액션(§19) 처리 — runSystemStep, runUntilPlayerAction, advancePhase 및 나머지 시스템 액션.
-// resolveAuction/autoSelectPromises는 Skill 4(rules/auction.ts, rules/promise.ts)가 실제 규칙을 제공한다.
-// 나머지(generateRandomBids, revealVoters, runUnificationTest, resolveVoting, resolvePolicy, scoreRound)는
-// Skill 5~7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
+// resolveAuction/autoSelectPromises는 Skill 4가, revealVoters는 Skill 5가 실제 규칙을 제공한다.
+// 나머지(generateRandomBids, runUnificationTest, resolveVoting, resolvePolicy, scoreRound)는
+// Skill 6~7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
 import { getPlayerCountConfig, INCOME_MONEY, INCOME_ORGANIZATION } from './constants';
 import { appendLog, createLogEntry } from './log';
 import { AUTO_PHASE_ACTION, getNextPhase, PHASES, SYSTEM_ACTION_PHASE } from './phases';
 import type { AutoActionType } from './phases';
+import { createInitialRoundState } from './roundState';
 import { applyResolveAuctionAction } from './rules/auction';
 import { applyAutoSelectPromisesAction } from './rules/promise';
+import { applyRevealVotersAction } from './rules/voters';
 import type { ReduceResult } from './result';
 import type { AuctionMode, SystemAction } from './types/actions';
 import type { ActionLogEntry, EffectDescriptor, GameState } from './types/state';
@@ -48,8 +50,9 @@ export function applySystemAction(state: GameState, action: SystemAction): Reduc
       return applyResolveAuctionAction(state);
     case 'autoSelectPromises':
       return applyAutoSelectPromisesAction(state);
-    case 'generateRandomBids':
     case 'revealVoters':
+      return applyRevealVotersAction(state);
+    case 'generateRandomBids':
     case 'runUnificationTest':
     case 'resolveVoting':
     case 'resolvePolicy':
@@ -198,17 +201,7 @@ function applyNextRound(state: GameState): ReduceResult {
   const next: GameState = {
     ...appendLog(state, entry),
     phase: nextPhase,
-    round: isLastRound
-      ? state.round
-      : {
-          round: nextRoundNumber,
-          issueId: null,
-          candidatesRevealed: [],
-          candidatesRunning: [],
-          votersRevealed: [],
-          bids: {},
-          camps: {},
-        },
+    round: isLastRound ? state.round : createInitialRoundState(nextRoundNumber),
   };
   return ok(next, entry);
 }

@@ -124,3 +124,7 @@ export const CAMPAIGN_ACTION_CONSUMES_TURN: Readonly<Record<CampaignActionType, 
 };
 
 export const CAMPAIGN_ACTIONS_PER_PLAYER = 2;
+
+// ── 부록 A-4: 미정 액션 잠정 처리 ──────────────────────────────
+/** poll(여론조사) 비활성 플래그 — 비용/효과가 브리프에 미정이라 타입·자리만 두고 막아둔다 */
+export const POLL_ENABLED = false;

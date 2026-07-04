@@ -5,6 +5,17 @@
 // 카드 내용이 필요 없는 액션(대부분의 시스템 액션, placeBid 등)은 catalog를 사용하지 않는다.
 import { applyConfirmAuctionBids, applyPlaceBid } from './rules/auction';
 import { applySelectPromise } from './rules/promise';
+import {
+  applyConditionalSupport,
+  applyContactVoter,
+  applyFundraise,
+  applyPoll,
+  applyPressurePolicy,
+  applyReportScandal,
+  applyRunAd,
+  applyUseEvent,
+} from './rules/campaign';
+import { applyAssignVoterChoice } from './rules/voters';
 import { PHASES, PLAYER_ACTION_PHASE } from './phases';
 import { applySystemAction } from './system';
 import type { CardCatalog } from './types/cards';
@@ -47,11 +58,29 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
       return applyConfirmAuctionBids(state, action);
     case 'selectPromise':
       return applySelectPromise(state, action, catalog);
+    case 'contactVoter':
+      return applyContactVoter(state, action, catalog);
+    case 'runAd':
+      return applyRunAd(state, action);
+    case 'pressurePolicy':
+      return applyPressurePolicy(state, action, catalog);
+    case 'fundraise':
+      return applyFundraise(state, action, catalog);
+    case 'reportScandal':
+      return applyReportScandal(state, action);
+    case 'conditionalSupport':
+      return applyConditionalSupport(state, action);
+    case 'assignVoterChoice':
+      return applyAssignVoterChoice(state, action);
+    case 'poll':
+      return applyPoll();
+    case 'useEvent':
+      return applyUseEvent(state, action);
     default:
-      // Skill 5~7이 이 자리를 실제 규칙으로 교체한다
+      // Skill 6~7이 이 자리를 실제 규칙으로 교체한다 (단일화·당선 효과 선택)
       return {
         ok: false,
-        reason: `'${action.type}' 액션은 아직 구현되지 않았습니다 (Skill 5~7에서 추가 예정)`,
+        reason: `'${action.type}' 액션은 아직 구현되지 않았습니다 (Skill 6~7에서 추가 예정)`,
       };
   }
 }
