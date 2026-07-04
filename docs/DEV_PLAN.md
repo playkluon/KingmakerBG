@@ -44,23 +44,30 @@
 
 목표: 룰은 비어 있어도 **게임의 뼈대(상태·액션·페이즈 흐름)가 결정적으로 도는** 엔진.
 
-- [ ] types/ids.ts — §18 템플릿 리터럴 ID 7종
-- [ ] types/state.ts — GameState·RoundState·PlayerState·DrawPiles·ActionLogEntry·RoundHistoryEntry·RoundResultSummary (schemaVersion "0.2")
-- [ ] types/actions.ts — 시스템 액션 16종 + 플레이어 액션 17종 유니온
-- [ ] constants.ts — 인원별 설정표(§3)·시작 자원(§5)·트랙(§6)·액션 비용표(§11)·scoring v1 수치(§15)
-- [ ] rng.ts — mulberry32, RNG 상태를 GameState에 보관
-- [ ] phases.ts — phase 16종: 허용 액션 집합 + 자동 진행 가능 여부
-- [ ] reducer.ts — `reduce(state, action) → { state, log } | { ok:false, reason }` 골격 (각 phase 처리는 TODO 스텁)
-- [ ] system.ts — runSystemStep / runUntilPlayerAction / advancePhase
-- [ ] setup.ts — seed 셔플·좌석·비밀 의제 배분 (임시 카드 데이터로)
-- [ ] log.ts — ActionLogEntry 생성 헬퍼 (한국어 summary)
-- [ ] selectors/ — getPendingDecision 등 UI용 파생값 (골격)
+- [x] types/ids.ts — §18 템플릿 리터럴 ID 7종 + VoterGroupId·PolicyTrackId·PolicyDirection·CampRole
+- [x] types/state.ts — GameState·RoundState·PlayerState·DrawPiles·ActionLogEntry·EffectDescriptor·RoundHistoryEntry·RoundResultSummary (schemaVersion "0.2")
+- [x] types/actions.ts — 시스템 액션 16종 + 플레이어 액션 17종 유니온, isPlayerAction 판별 함수
+- [x] constants.ts — 인원별 설정표(§3)·시작 자원(§5)·트랙(§6)·액션 비용표(§11)
+- [x] rng.ts — mulberry32, RNG 상태를 GameState.rngState에 보관 (createRng/nextRandom/nextInt/shuffle 순수 함수)
+- [x] phases.ts — phase 16종 + requiresPlayerDecision, getNextPhase, PLAYER_ACTION_PHASE/SYSTEM_ACTION_PHASE/AUTO_PHASE_ACTION 매핑
+- [x] system.ts — applySystemAction(16종 단일 진입점), runSystemStep/runUntilPlayerAction/advancePhase, income 실구현
+- [x] reducer.ts — `reduce(state, action) → {ok:true, state, log} | {ok:false, reason}` (플레이어 액션은 좌석·phase 검증 후 미구현 응답)
+- [x] setup.ts — seed 셔플·좌석·비밀 의제 배분 (placeholder ID로 §4 수량만큼 덱 구성)
+- [x] log.ts — createLogEntry/appendLog (한국어 summary)
+- [x] selectors/index.ts — isWaitingForPlayerDecision · getPhaseDescription · isGameOver
 
-**완료 조건 (M1)**:
-- [ ] 같은 seed → 같은 setup (테스트)
-- [ ] 4/5/6/7인 설정이 §3 표와 일치 (테스트)
-- [ ] 같은 seed + 같은 액션 시퀀스 재생 = 동일 상태 (테스트)
-- [ ] 잘못된 phase 액션 → 한국어 사유와 함께 거부 (테스트)
+**완료 조건 (M1)**: ✅ 2026-07-05 통과 (테스트 4파일 21건 전체 통과)
+- [x] 같은 seed → 같은 setup (setup.test.ts)
+- [x] 4/5/6/7인 설정이 §3 표와 일치 (setup.test.ts)
+- [x] 같은 seed + 같은 액션 시퀀스 재생 = 동일 상태 (determinism.test.ts)
+- [x] 잘못된 phase 액션 → 한국어 사유와 함께 거부 (phases.test.ts)
+
+구현 노트 / 스코프 조정:
+- **scoring v1 수치(§15)는 Phase 1에 넣지 않음** — engine-core SKILL.md의 constants.ts 파일 목록에 §15가 없고, 실제로 쓰는 곳(Skill 7)이 생기기 전에 넣는 건 과설계라 판단. Skill 7 착수 시 constants.ts에 추가한다.
+- **getPendingDecision은 아직 없음** — "무엇을 해야 하는지" 구체 안내는 경매/공약/캠페인 등 실제 규칙(Skill 4~7)을 알아야 만들 수 있다. Phase 1 selectors는 "결정 대기 중인지/현재 phase가 뭔지"까지만 제공하는 얇은 버전. Skill 10에서 확장.
+- **phase 처리 스텁의 동작 방식**: `requiresPlayerDecision:false`인 phase(auctionResolved·voterReveal·voting·policyResolution·roundScoring)는 내용 없이도 TODO 로그를 남기고 다음 phase로 자동 통과한다 — 그래야 phase 머신 자체를 값 없이도 끝까지 걸어볼 수 있다. 플레이어 결정 phase(auctionBidding 등)는 실제로 멈추고, 그 안의 플레이어 액션 17종은 좌석·phase 검증까지만 하고 "아직 구현되지 않았습니다"로 응답한다.
+- **부록 A-7 추가**: 브리프 §17이 비밀 의제 배분 절차(선택 여부)를 명시하지 않아, "플레이어당 1장 무작위 배분(선택 없음)"으로 결정해 GAME_SPEC.md에 기록.
+- income phase(§5)는 스텁이 아니라 실제 로직(자금·조직력 지급 + 후보 이벤트 1장 드로우)을 구현 — 카드 콘텐츠에 의존하지 않는 순수 수치 로직이라 Phase 1 범위로 포함.
 
 > 착수 지시: "skills/engine-core/SKILL.md 대로 Phase 1 진행해줘"
 
