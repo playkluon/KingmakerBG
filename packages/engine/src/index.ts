@@ -64,12 +64,14 @@ export type {
   CampState,
   DrawPiles,
   EffectDescriptor,
+  ElectionEffectResolution,
   GameState,
   PlayerState,
   PolicyPressure,
   RoundHistoryEntry,
   RoundResultSummary,
   RoundState,
+  UnificationProposal,
 } from './types/state';
 export type {
   AgendaCondition,
@@ -88,6 +90,9 @@ export type {
 
 // ── 규칙 함수 (서버·시뮬레이션·후속 스킬 재사용용) ─────────────
 export { computeVoterVotes, getVoterController } from './rules/voters';
+export { computeTransferRatio } from './rules/unification';
+export { computeVoteBreakdown } from './rules/voting';
+export type { VoteBreakdown } from './rules/voting';
 
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
 export { getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';

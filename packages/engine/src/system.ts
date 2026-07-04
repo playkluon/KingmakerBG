@@ -1,17 +1,22 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // 시스템 액션(§19) 처리 — runSystemStep, runUntilPlayerAction, advancePhase 및 나머지 시스템 액션.
-// resolveAuction/autoSelectPromises는 Skill 4가, revealVoters는 Skill 5가 실제 규칙을 제공한다.
-// 나머지(generateRandomBids, runUnificationTest, resolveVoting, resolvePolicy, scoreRound)는
-// Skill 6~7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
+// resolveAuction/autoSelectPromises는 Skill 4가, revealVoters는 Skill 5가,
+// resolveVoting/resolvePolicy/runUnificationTest는 Skill 6이 실제 규칙을 제공한다.
+// 나머지(generateRandomBids, scoreRound)는 Skill 7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
+// catalog: resolveVoting/resolvePolicy처럼 카드 "내용"이 필요한 액션을 위해 체인 전체로 관통시킨다.
 import { getPlayerCountConfig, INCOME_MONEY, INCOME_ORGANIZATION } from './constants';
 import { appendLog, createLogEntry } from './log';
 import { AUTO_PHASE_ACTION, getNextPhase, PHASES, SYSTEM_ACTION_PHASE } from './phases';
 import type { AutoActionType } from './phases';
 import { createInitialRoundState } from './roundState';
 import { applyResolveAuctionAction } from './rules/auction';
+import { applyResolvePolicyAction } from './rules/policy';
 import { applyAutoSelectPromisesAction } from './rules/promise';
+import { applyRunUnificationTestAction } from './rules/unification';
 import { applyRevealVotersAction } from './rules/voters';
+import { applyResolveVotingAction } from './rules/voting';
 import type { ReduceResult } from './result';
+import type { CardCatalog } from './types/cards';
 import type { AuctionMode, SystemAction } from './types/actions';
 import type { ActionLogEntry, EffectDescriptor, GameState } from './types/state';
 
@@ -28,7 +33,7 @@ function checkExpectedPhase(state: GameState, type: SystemAction['type']): strin
 }
 
 /** §19 시스템 액션 16종의 단일 진입점 */
-export function applySystemAction(state: GameState, action: SystemAction): ReduceResult {
+export function applySystemAction(state: GameState, action: SystemAction, catalog: CardCatalog): ReduceResult {
   switch (action.type) {
     case 'startGame':
       return applyStartGame(state);
@@ -43,19 +48,22 @@ export function applySystemAction(state: GameState, action: SystemAction): Reduc
     case 'nextRound':
       return applyNextRound(state);
     case 'runSystemStep':
-      return applyRunSystemStep(state);
+      return applyRunSystemStep(state, catalog);
     case 'runUntilPlayerAction':
-      return applyRunUntilPlayerAction(state);
+      return applyRunUntilPlayerAction(state, catalog);
     case 'resolveAuction':
       return applyResolveAuctionAction(state);
     case 'autoSelectPromises':
       return applyAutoSelectPromisesAction(state);
     case 'revealVoters':
       return applyRevealVotersAction(state);
-    case 'generateRandomBids':
     case 'runUnificationTest':
+      return applyRunUnificationTestAction(state);
     case 'resolveVoting':
+      return applyResolveVotingAction(state, catalog);
     case 'resolvePolicy':
+      return applyResolvePolicyAction(state, catalog);
+    case 'generateRandomBids':
     case 'scoreRound':
       return applyStubSystemAction(state, action.type);
     default: {
@@ -207,7 +215,7 @@ function applyNextRound(state: GameState): ReduceResult {
 }
 
 /**
- * Skill 5~7이 실제 규칙으로 교체할 스텁.
+ * Skill 7이 실제 규칙으로 교체할 스텁.
  * 검증(phase 일치)은 실제로 수행하되, 내용은 TODO 로그만 남기고 다음 phase로 통과시킨다
  * — 그래야 phase 머신 전체가 콘텐츠 없이도 끝까지 걸을 수 있다 (Phase 1의 목적).
  */
@@ -221,7 +229,7 @@ function applyStubSystemAction(state: GameState, type: SystemAction['type']): Re
 }
 
 /** 자동 phase 하나를 진행한다. 대기가 필요하면 ok:false로 그 사유를 알린다 */
-function applyRunSystemStep(state: GameState): ReduceResult {
+function applyRunSystemStep(state: GameState, catalog: CardCatalog): ReduceResult {
   if (state.phase === 'setup') return fail("'setup' 단계는 'startGame'으로 시작해야 합니다");
   if (state.phase === 'gameEnd') return fail('게임이 이미 종료되어 더 진행할 단계가 없습니다');
   if (PHASES[state.phase].requiresPlayerDecision) {
@@ -230,7 +238,7 @@ function applyRunSystemStep(state: GameState): ReduceResult {
   const actionType: AutoActionType | undefined = AUTO_PHASE_ACTION[state.phase];
   if (!actionType) return fail(`'${state.phase}' 단계는 자동 진행할 수 없습니다`);
   // AUTO_PHASE_ACTION의 모든 값은 페이로드 없는 시스템 액션이다 (setAuctionMode 제외 대상)
-  return applySystemAction(state, { type: actionType } as SystemAction);
+  return applySystemAction(state, { type: actionType } as SystemAction, catalog);
 }
 
 /**
@@ -238,7 +246,7 @@ function applyRunSystemStep(state: GameState): ReduceResult {
  * confirmAuctionBids·selectPromise 등 개별 액션은 자기 몫만 처리하고 멈춘다 —
  * 그다음 자동 phase까지 이어서 진행하고 싶을 때 호출자가 이 함수(또는 runUntilPlayerAction 액션)를 별도로 호출한다.
  */
-export function runAutoPhases(state: GameState): { state: GameState; log: ActionLogEntry[] } {
+export function runAutoPhases(state: GameState, catalog: CardCatalog): { state: GameState; log: ActionLogEntry[] } {
   let current = state;
   const log: ActionLogEntry[] = [];
   // 무한 루프 방지 안전장치. 라운드당 자동 phase는 최대 9개 남짓이라 5라운드 기준으로도 충분히 크다.
@@ -249,7 +257,7 @@ export function runAutoPhases(state: GameState): { state: GameState; log: Action
     if (PHASES[current.phase].requiresPlayerDecision) break;
     const actionType = AUTO_PHASE_ACTION[current.phase];
     if (!actionType) break;
-    const result = applySystemAction(current, { type: actionType } as SystemAction);
+    const result = applySystemAction(current, { type: actionType } as SystemAction, catalog);
     if (!result.ok) break;
     current = result.state;
     log.push(...result.log);
@@ -259,7 +267,7 @@ export function runAutoPhases(state: GameState): { state: GameState; log: Action
 }
 
 /** 이미 결정 지점이거나 종료 상태여도 실패가 아니라 빈 로그로 성공 처리한다 — "진행" 버튼은 언제 눌러도 안전해야 한다. */
-function applyRunUntilPlayerAction(state: GameState): ReduceResult {
-  const { state: nextState, log } = runAutoPhases(state);
+function applyRunUntilPlayerAction(state: GameState, catalog: CardCatalog): ReduceResult {
+  const { state: nextState, log } = runAutoPhases(state, catalog);
   return { ok: true, state: nextState, log };
 }

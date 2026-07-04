@@ -8,6 +8,7 @@ import type {
   EventId,
   IssueId,
   PlayerId,
+  PolicyDirection,
   PolicyTrackId,
   PromiseId,
   VoterGroupId,
@@ -51,7 +52,25 @@ export interface CampState {
   promiseOptions: PromiseId[];
   /** majorBacker(또는 autoSelectPromises)가 확정한 공약 */
   promiseId: PromiseId | null;
+  /** 경매에서 이 후보에게 걸린 총 금액 (§13 투표 동점 처리 ②에 쓰인다) */
+  totalBacking: number;
 }
+
+/** 단일화 제안 1건 (§12) — 시스템 전체에 최대 1건만 대기할 수 있다 */
+export interface UnificationProposal {
+  proposer: PlayerId;
+  leadCandidateId: CandidateId;
+  withdrawCandidateId: CandidateId;
+  /** A-12 기준 계산된 이전 비율 (0.7 / 0.5 / 0.3) */
+  ratio: number;
+  /** 제안 시점 사퇴 후보의 표 × ratio, 내림 */
+  transferVotes: number;
+}
+
+/** 당선 효과(§14) 확정 결과. policyResolution이 이 값을 그대로 적용한다 */
+export type ElectionEffectResolution =
+  | { kind: 'move'; track: PolicyTrackId; direction: PolicyDirection; amount: number }
+  | { kind: 'repeatPromise'; repeat: number };
 
 /** 정책 트랙 1개에 쌓인 압박 총합 (§6) — 압박 액션과 공약의 backerPressureToken이 함께 쌓는다 */
 export interface PolicyPressure {
@@ -91,6 +110,18 @@ export interface RoundState {
   campaignActiveIndex: number;
   /** 플레이어별 이번 라운드 사용한 캠페인 액션 수 (최대 2, assignVoterChoice는 포함 안 됨) */
   campaignActionsUsed: Partial<Record<PlayerId, number>>;
+  /** §12 단일화로 사퇴한 후보 (라운드당 최대 1명 — 부록 A-12) */
+  withdrawnCandidates: CandidateId[];
+  /** 사퇴 후보 -> 대표 후보로 이전된 표 (대표 후보 id가 키) */
+  unificationTransfers: Partial<Record<CandidateId, number>>;
+  /** 현재 대기 중인 단일화 제안. 동시에 1건만 존재할 수 있다 */
+  pendingUnificationProposal: UnificationProposal | null;
+  /** majorBacker별로 "이번 라운드 단일화 관련 행동을 더 하지 않음" 표시 (스킵 또는 제안 거절됨) */
+  unificationDone: Partial<Record<PlayerId, boolean>>;
+  /** §13 투표 정산 후 확정되는 당선 후보 */
+  winnerCandidateId: CandidateId | null;
+  /** §14 당선 효과 선택 결과. policyResolution이 소비한다 */
+  electionEffectResolution: ElectionEffectResolution | null;
 }
 
 /** 셔플된 카드 풀의 남은 뭉치. Phase 1은 실제 카드 데이터 없이 placeholder ID로 채운다 */

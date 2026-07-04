@@ -132,11 +132,20 @@
 - **voteWeight × relation 방식 채택**: Phase 2에서 만든 VoterCard.voteWeight(1~3)를 살리기 위해, 표 변화 델타를 곱셈 계수로 사용(voteWeight×{1,0,-1,-2}, 0 미만 클램프). 브리프가 명시하지 않은 조합 방식이라 이식 결정으로 분류— 필요시 재조정 가능.
 - 캠페인 액션의 자원 할인/보너스(§11 MVP 능력)는 "actor가 majorBacker인 출마 후보의 활성 능력"만 조회하도록 구현 — 후보가 여러 명이어도 단순 override 없이 첫 매치만 적용(스택 없음, 브리프 미명시라 단순한 쪽 채택).
 
-### 3-C. 단일화·투표·정책 (skills/unification-voting)
-- [ ] propose/accept/decline/skip 흐름, 이전 비율 70/50/30 자동 판정·내림, 직접 충돌 불가
-- [ ] 투표 5요소 합산 + 동점 4단계, 표 출처 분해(RoundResultSummary)
-- [ ] 정책 4순서 (③단일화 양보는 no-op 훅), 압박 비교 최대 2트랙, −2..+2 클램프
-- [ ] 당선 효과 4유형 + electionEffectSelection + fallback
+### 3-C. 단일화·투표·정책 (skills/unification-voting) ✅ 2026-07-05
+- [x] propose/accept/decline/skip 흐름, 이전 비율 70/50/30 자동 판정·내림, 직접 충돌 불가
+- [x] 투표 5요소 합산 + 동점 4단계, 표 출처 분해(RoundResultSummary)
+- [x] 정책 4순서 (③단일화 양보는 no-op 훅), 압박 비교 최대 2트랙, −2..+2 클램프
+- [x] 당선 효과 4유형 + electionEffectSelection + fallback
+- [x] runUnificationTest(제안 가능한 majorBacker가 없는 edge case 처리)
+
+구현 노트 / 스코프 조정:
+- **system.ts의 catalog 관통 범위 확대** — resolveVoting/resolvePolicy가 카드 내용이 필요해져 `applySystemAction`/`runAutoPhases`/`runSystemStep`/`runUntilPlayerAction` 체인 전체에 catalog 매개변수를 추가했다. Skill 4에서 selectPromise 하나 때문에 만든 catalog 배관을 이번에 시스템 액션까지 확장한 셈 — 이후 Skill 7(scoring)도 같은 체인을 그대로 쓸 수 있다.
+- **GAME_SPEC 부록 A-12 추가**: 단일화 이전 비율의 "성향 충돌" 판정을 브리프가 구체화하지 않아, 두 후보가 선택한 공약의 정책 트랙/방향 비교로 통일했다(같은 트랙+같은 방향=70%, 같은 트랙+반대 방향=직접충돌 불가, 트랙이 다르면 지지 그룹 겹침 여부로 50%/30%). `CandidateCard.leaningTags`는 이 계산에 쓰지 않기로 함(카드 플레이버로만 유지).
+- **단일화는 라운드당 최대 1건**으로 단순화 — 성사 즉시 투표로 진행한다. 연쇄 단일화(3→2→1)는 브리프 미명시라 배제.
+- **CampState.totalBacking 추가**: §13 동점 처리 ②"총 후원금"을 계산하려면 경매 시점 총액을 저장해둬야 해서, Skill 4가 만든 CampState에 필드를 추가(auction.ts도 함께 수정).
+- 당선 효과 확정(electionEffectSelection)과 실제 적용(policyResolution)을 분리 — "무엇으로 결정됐는지"(electionEffectResolution)와 "그걸 트랙에 반영하는 것"을 다른 phase로 나눠, promiseSelection/campaignActions에서 쓴 "결정 vs 적용" 패턴을 그대로 재사용했다.
+- 3-C까지 누적 104건(엔진 79 + 데이터 25) 전체 통과, `pnpm typecheck` 통과.
 
 ### 3-D. 라운드 점수 (skills/scoring 라운드분)
 - [ ] scoring v1 전 항목 + VP 사유 effects 기록

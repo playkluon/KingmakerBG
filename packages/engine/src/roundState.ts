@@ -29,5 +29,11 @@ export function createInitialRoundState(round: number): RoundState {
     campaignTurnOrder: [],
     campaignActiveIndex: 0,
     campaignActionsUsed: {},
+    withdrawnCandidates: [],
+    unificationTransfers: {},
+    pendingUnificationProposal: null,
+    unificationDone: {},
+    winnerCandidateId: null,
+    electionEffectResolution: null,
   };
 }

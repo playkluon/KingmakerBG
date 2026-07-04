@@ -93,3 +93,20 @@ export function setupAtCampaign(seed: number, playerNames: [string, string, stri
   if (!toCampaign.ok) throw new Error('fixture 준비 실패: campaignActions 진입');
   return toCampaign.state;
 }
+
+/**
+ * 정확히 4명이 참여해 unification phase까지 도달한 상태를 만든다 (Skill 6 테스트 공용).
+ * 캠페인 액션은 전원 conditionalSupport(비용 없음)로 2회씩 소진해 라운드로빈을 빠르게 끝낸다.
+ */
+export function setupAtUnification(seed: number, playerNames: [string, string, string, string]): GameState {
+  let state = setupAtCampaign(seed, playerNames);
+  const candidateId = state.round.candidatesRunning[0]!;
+  for (let i = 0; i < 8; i += 1) {
+    const actor = state.round.campaignTurnOrder[state.round.campaignActiveIndex]!;
+    const result = reduce(state, { type: 'conditionalSupport', actor, candidateId }, emptyCatalog());
+    if (!result.ok) throw new Error(`fixture 준비 실패(conditionalSupport ${actor}): ${result.reason}`);
+    state = result.state;
+  }
+  if (state.phase !== 'unification') throw new Error(`fixture 준비 실패: unification 진입 (실제 phase=${state.phase})`);
+  return state;
+}

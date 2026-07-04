@@ -16,6 +16,13 @@ import {
   applyUseEvent,
 } from './rules/campaign';
 import { applyAssignVoterChoice } from './rules/voters';
+import { applySelectElectionPolicyMove } from './rules/electionEffects';
+import {
+  applyAcceptUnification,
+  applyDeclineUnification,
+  applyProposeUnification,
+  applySkipUnification,
+} from './rules/unification';
 import { PHASES, PLAYER_ACTION_PHASE } from './phases';
 import { applySystemAction } from './system';
 import type { CardCatalog } from './types/cards';
@@ -30,7 +37,7 @@ export function reduce(state: GameState, action: GameAction, catalog: CardCatalo
   if (isPlayerAction(action)) {
     return applyPlayerAction(state, action, catalog);
   }
-  return applySystemAction(state, action);
+  return applySystemAction(state, action, catalog);
 }
 
 /**
@@ -76,11 +83,20 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
       return applyPoll();
     case 'useEvent':
       return applyUseEvent(state, action);
-    default:
-      // Skill 6~7이 이 자리를 실제 규칙으로 교체한다 (단일화·당선 효과 선택)
-      return {
-        ok: false,
-        reason: `'${action.type}' 액션은 아직 구현되지 않았습니다 (Skill 6~7에서 추가 예정)`,
-      };
+    case 'proposeUnification':
+      return applyProposeUnification(state, action, catalog);
+    case 'acceptUnification':
+      return applyAcceptUnification(state, action);
+    case 'declineUnification':
+      return applyDeclineUnification(state, action);
+    case 'skipUnification':
+      return applySkipUnification(state, action);
+    case 'selectElectionPolicyMove':
+      return applySelectElectionPolicyMove(state, action, catalog);
+    default: {
+      // §20 플레이어 액션 17종을 모두 처리했으므로 도달 불가 — 타입 누락을 컴파일 타임에 잡기 위한 안전장치
+      const exhaustiveCheck: never = action;
+      return { ok: false, reason: `알 수 없는 플레이어 액션입니다: ${JSON.stringify(exhaustiveCheck)}` };
+    }
   }
 }

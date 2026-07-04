@@ -153,7 +153,7 @@ function resolveAuction(state: GameState): { state: GameState; log: ActionLogEnt
       const promiseOptions = promiseDeck.slice(0, 3);
       promiseDeck = promiseDeck.slice(promiseOptions.length);
 
-      camps[t.candidateId] = { majorBacker, coBacker, organizer, promiseOptions, promiseId: null };
+      camps[t.candidateId] = { majorBacker, coBacker, organizer, promiseOptions, promiseId: null, totalBacking: t.total };
     } else {
       for (const b of t.backers) {
         const refund = Math.floor(b.amount / 2);
