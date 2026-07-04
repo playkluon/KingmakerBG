@@ -10,7 +10,7 @@ export const SCHEMA_VERSION = '0.2';
 // ── 규칙 진입점 ──────────────────────────────────────────────
 export { reduce } from './reducer';
 export type { ReduceResult } from './reducer';
-export { setupGame } from './setup';
+export { buildPlaceholderIds, setupGame } from './setup';
 export type { SetupOptions, SetupPlayerInput } from './setup';
 
 // ── phase 상태 머신 ──────────────────────────────────────────

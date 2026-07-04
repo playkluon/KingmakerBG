@@ -75,18 +75,27 @@
 
 ## Phase 2 — 카드 데이터 (skills/card-data) → M2
 
-목표: 187장 전체 데이터 + 스키마. **테마 텍스트는 한국어 신규 창작, 수량·구조는 §4 고정.**
+목표: 190장(21+30+48+15+30+30+16) 전체 데이터 + 스키마. **테마 텍스트는 한국어 신규 창작, 수량·구조는 §4 고정.**
 
-- [ ] tags.ts — 태그 어휘 중앙화 (공약 반응 태그 = 유권자 선호 태그 동일 어휘)
-- [ ] schemas.ts — zod 6종 카드 스키마 (효과는 판별 유니온 타입)
-- [ ] candidates.ts 21장 — 기본 표·성향·당선 효과(4유형 배분)·능력/약점(MVP 활성 3종만 active)
-- [ ] promises.ts 30장 — 트랙/방향 + 즉시 효과 5유형 배분
-- [ ] voters.ts 48장 — 그룹·표 수·선호/싫어함/직접충돌 태그
-- [ ] issues.ts 15장, candidateEvents.ts 30장 / voterEvents.ts 30장 (effect: todo)
-- [ ] agendas.ts 16장 — §17 조건 11유형 조합, 배점 8~13 VP
-- [ ] integrity.test.ts — 수량·ID 유일성·태그 참조 무결성
+- [x] tags.ts — 태그 어휘 중앙화: 정책 트랙 5×방향 2에서 파생되는 반응 태그 10종(부록 A-9) + 유권자 그룹 6종(부록 A-8)
+- [x] schemas.ts — zod 6종 카드 스키마 + 4개 판별 유니온(ElectionEffect·CandidateAbility·PromiseEffect·AgendaCondition)
+- [x] candidates.ts 21장 — 기본 표(3~7)·leaningTags·supportedVoterGroups·당선 효과(4유형 배분)·능력(MVP 활성 5종만 active: 모금/노동자접촉할인/압박할인/공약제한/평판손실)
+- [x] promises.ts 30장 — 트랙×방향 10조합 × 3장, 즉시 효과 5유형을 6장씩 균등 배분, reactionTag는 policyMove에서 자동 파생
+- [x] voters.ts 48장 — 6그룹 × 8장, conflictTag는 preferredTag의 정반대로 자동 계산(부록 A-9)
+- [x] issues.ts 15장, candidateEvents.ts 30장 / voterEvents.ts 30장 (전부 effect: {todo:true})
+- [x] agendas.ts 16장 — §17 조건 11유형 전부 최소 1장씩 사용, 배점 8~13 VP
+- [x] integrity.test.ts — 수량 7종·zod 파싱·ID 유일성·참조 무결성·의제 조건 커버리지·MVP 능력 5종 검증 (20건)
+- [x] engineIntegration.test.ts — 실카드 ID로 `@kingmakers/engine`의 setupGame/reduce를 구동해 결정성 재확인 (4건)
 
-**완료 조건 (M2)**: 무결성 테스트 전체 통과 + Phase 1의 setup.ts가 실데이터로 교체되어도 결정성 테스트 유지.
+**완료 조건 (M2)**: ✅ 2026-07-05 통과 (data 24건 + engine 21건 = 45건 전체 통과)
+- [x] 무결성 테스트 전체 통과
+- [x] Phase 1의 setup.ts가 실데이터로 교체되어도 결정성 테스트 유지
+
+구현 노트 / 스코프 조정:
+- **엔진 setup.ts를 먼저 리팩터링함** — Phase 1의 `setupGame`은 카드 ID를 내부에서 직접 생성했는데, 이러면 실카드 데이터를 주입할 방법이 없었다. `SetupOptions.decks: DrawPiles`를 필수 파라미터로 바꿔 호출자가 카드 ID 목록을 주입하는 구조로 변경(엔진은 여전히 packages/data를 import하지 않음 — 외부 의존성 0 유지). 엔진 자체 테스트는 새로 만든 `buildPlaceholderIds`/`test/fixtures.ts`로 placeholder 덱을 계속 사용한다.
+- **부록 A-8, A-9 추가**: 브리프가 정하지 않은 유권자 그룹 6종 명칭과, 공약 반응 태그=정책 트랙 파생 10종이라는 결정을 GAME_SPEC.md에 기록. 태그 어휘를 하나로 통일해 "공약 트랙/방향 일치"(§12)와 "선호 태그 일치"(§10) 판정이 같은 비교 로직을 쓸 수 있게 했다.
+- **VoterCard에 voteWeight 추가**: §13 "유권자 배정 표"가 실제로 존재하려면 각 유권자 카드가 표 수를 가져야 한다는 게 브리프에서 직접 도출되는 요구라 스키마에 포함(브리프 미기재 수치이므로 1~3 범위로 임의 배분).
+- **이벤트 효과는 60장 전부 `{todo:true}`로 통일** — §4는 "대부분 TODO"라 했지만 CLAUDE.md Skill 3 설명("이벤트는 데이터만")이 더 엄격해 그쪽을 따름.
 
 > 착수 지시: "skills/card-data/SKILL.md 대로 Phase 2 진행해줘"
 

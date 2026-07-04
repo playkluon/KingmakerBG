@@ -2,18 +2,20 @@
   "name": "@kingmakers/data",
   "version": "0.1.0",
   "private": true,
-  "description": "카드 데이터 + zod 스키마 (Phase 2에서 187장 데이터 추가)",
+  "description": "카드 데이터(후보21·공약30·유권자48·이슈15·이벤트30+30·의제16) + zod 스키마",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "test": "vitest run"
   },
   "dependencies": {
     "@kingmakers/engine": "workspace:*",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0"
   }
 }

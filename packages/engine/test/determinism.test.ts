@@ -5,12 +5,13 @@ import { reduce } from '../src/reducer';
 import { setupGame } from '../src/setup';
 import type { GameAction } from '../src/types/actions';
 import type { GameState } from '../src/types/state';
+import { testDecks } from './fixtures';
 
 const players = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
 
 /** startGame 후 자동 진행 가능한 phase(수입/이슈/후보 공개)를 끝까지 밟고 auctionBidding에서 멈춘다 */
 function playToAuction(seed: number): { state: GameState; log: unknown[] } {
-  let state = setupGame({ seed, players });
+  let state = setupGame({ seed, players, decks: testDecks() });
   const sequence: GameAction[] = [{ type: 'startGame' }, { type: 'runUntilPlayerAction' }];
   const log: unknown[] = [];
   for (const action of sequence) {

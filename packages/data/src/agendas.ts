@@ -1,0 +1,118 @@
+// 기반 스킬: skills/card-data/SKILL.md
+// 비밀 의제 카드 16장 (§17) — 조건 11유형을 전부 최소 1회 사용한다. 배점은 §17 기준 8-13 VP.
+import type { SecretAgendaCard } from './schemas';
+
+export const AGENDAS: SecretAgendaCard[] = [
+  {
+    id: 'agenda-01',
+    name: '복지국가의 설계자',
+    description: '게임 종료 시 경제 트랙이 복지 방향으로 최대치까지 이동해 있어야 한다.',
+    condition: { kind: 'policyAtLeast', track: 'economy', direction: -1, minMagnitude: 2 },
+    points: 12,
+  },
+  {
+    id: 'agenda-02',
+    name: '노동 존중 사회',
+    description: '게임 종료 시 노동 트랙이 노동권 방향으로 기울어 있어야 한다.',
+    condition: { kind: 'policyAtLeast', track: 'labor', direction: -1, minMagnitude: 1 },
+    points: 9,
+  },
+  {
+    id: 'agenda-03',
+    name: '중도 실용주의자',
+    description: '게임 종료 시 사회 트랙이 어느 한쪽으로도 치우치지 않아야 한다.',
+    condition: { kind: 'policyBetween', track: 'society', min: -1, max: 1 },
+    points: 8,
+  },
+  {
+    id: 'agenda-04',
+    name: '균형 잡힌 국정',
+    description: '게임 종료 시 다섯 정책 트랙 모두 극단값(-2 또는 +2)에 있으면 안 된다.',
+    condition: { kind: 'noExtremePolicies' },
+    points: 10,
+  },
+  {
+    id: 'agenda-05',
+    name: '노동자의 대변인',
+    description: '게임 종료 시 노동자 그룹 영향력에서 단독 1위여야 한다.',
+    condition: { kind: 'influenceLeader', group: 'laborers' },
+    points: 9,
+  },
+  {
+    id: 'agenda-06',
+    name: '기층 민심 장악',
+    description: '게임 종료 시 노동자·농어촌·자영업자 그룹 중 하나 이상에서 단독 1위여야 한다.',
+    condition: { kind: 'influenceLeaderAny', groups: ['laborers', 'farmers', 'smallBusiness'] },
+    points: 8,
+  },
+  {
+    id: 'agenda-07',
+    name: '노년층과 거리두기',
+    description: '게임 종료 시 노년층 그룹 영향력에서 단독 1위가 아니어야 한다.',
+    condition: { kind: 'notInfluenceLeader', group: 'seniors' },
+    points: 8,
+  },
+  {
+    id: 'agenda-08',
+    name: '킹메이커의 자부심',
+    description: '게임 중 강온유가 한 번이라도 당선되어야 한다.',
+    condition: { kind: 'candidateWon', candidateId: 'candidate-01' },
+    points: 11,
+  },
+  {
+    id: 'agenda-09',
+    name: '견제와 균형',
+    description: '게임이 끝날 때까지 장미리의 당선 횟수가 1회를 넘으면 안 된다.',
+    condition: { kind: 'candidateWonAtMost', candidateId: 'candidate-12', maxTimes: 1 },
+    points: 9,
+  },
+  {
+    id: 'agenda-10',
+    name: '신망 있는 브로커',
+    description: '게임 종료 시 평판이 5 이상이어야 한다.',
+    condition: { kind: 'reputationAtLeast', minAmount: 5 },
+    points: 9,
+  },
+  {
+    id: 'agenda-11',
+    name: '평판 최상위',
+    description: '게임 종료 시 평판 순위 1위여야 한다.',
+    condition: { kind: 'reputationRankAtMost', maxRank: 1 },
+    points: 10,
+  },
+  {
+    id: 'agenda-12',
+    name: '자금력 과시',
+    description: '게임 종료 시 남은 자금이 15 이상이어야 한다.',
+    condition: { kind: 'remainingMoneyAtLeast', minAmount: 15 },
+    points: 8,
+  },
+  {
+    id: 'agenda-13',
+    name: '시장 만능주의자',
+    description: '게임 종료 시 경제 트랙이 시장 방향으로 최대치까지 이동해 있어야 한다.',
+    condition: { kind: 'policyAtLeast', track: 'economy', direction: 1, minMagnitude: 2 },
+    points: 13,
+  },
+  {
+    id: 'agenda-14',
+    name: '청년의 편',
+    description: '게임 종료 시 청년층 그룹 영향력에서 단독 1위여야 한다.',
+    condition: { kind: 'influenceLeader', group: 'youth' },
+    points: 9,
+  },
+  {
+    id: 'agenda-15',
+    name: '산업 성장 드라이브',
+    description: '게임 종료 시 산업 트랙이 성장 방향에 머물러 있어야 한다.',
+    condition: { kind: 'policyBetween', track: 'industry', min: 1, max: 2 },
+    points: 8,
+  },
+  {
+    id: 'agenda-16',
+    name: '전방위 인맥가',
+    description: '게임 중 고영석이 한 번이라도 당선되어야 한다.',
+    condition: { kind: 'candidateWon', candidateId: 'candidate-20' },
+    points: 10,
+  },
+];
