@@ -1,0 +1,255 @@
+/* 기반 스킬: skills/client-lobby-table/SKILL.md — 공용 보드 스타일 (CSS Modules, UI 라이브러리 금지) */
+.section {
+  background: #ffffff;
+  border: 1px solid #dcd9d0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #2e4a78;
+  margin: 0 0 8px;
+}
+
+/* ── 페이즈 헤더 ── */
+.phaseHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  background: #20283a;
+  color: #f2f3f7;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+}
+
+.phaseRound {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.phaseName {
+  color: #ffd9a0;
+  font-weight: 700;
+}
+
+.phaseWaiting {
+  font-size: 0.85rem;
+  color: #aeb6c8;
+}
+
+/* ── 정책 트랙 ── */
+.tracks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.track {
+  border: 1px solid #e3e1d8;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.trackName {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.trackCells {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.trackCell {
+  height: 14px;
+  border-radius: 3px;
+  background: #eeece4;
+  font-size: 0.6rem;
+  text-align: center;
+  line-height: 14px;
+  color: #8a90a0;
+}
+
+.trackCellActive {
+  background: #2e4a78;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.trackEnds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #8a90a0;
+  margin-top: 2px;
+}
+
+/* ── 후보/유권자 카드 그리드 ── */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.card {
+  border: 1px solid #e3e1d8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fbfaf6;
+}
+
+.cardRunning {
+  border-color: #2e4a78;
+  box-shadow: 0 0 0 1px #2e4a78;
+}
+
+.cardWinner {
+  border-color: #b93a2b;
+  box-shadow: 0 0 0 2px #b93a2b;
+}
+
+.cardWithdrawn {
+  opacity: 0.45;
+}
+
+.cardName {
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+.cardMeta {
+  font-size: 0.76rem;
+  color: #555d70;
+  line-height: 1.5;
+  margin-top: 3px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: #2e4a78;
+  margin-right: 4px;
+  margin-top: 3px;
+}
+
+.badgeRed {
+  background: #f7e9e6;
+  color: #b93a2b;
+}
+
+.badgeGold {
+  background: #f4f0e4;
+  color: #96793b;
+}
+
+/* ── 플레이어 패널 ── */
+.playerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.playerBox {
+  flex: 1 1 150px;
+  border: 1px solid #e3e1d8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.playerBoxMe {
+  border-color: #96793b;
+  background: #fdfaf2;
+}
+
+.playerName {
+  font-weight: 800;
+}
+
+.resources {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+  color: #444c5e;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 액션 로그 ── */
+.log {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.logEntry {
+  border-bottom: 1px dashed #eeece4;
+  padding: 2px 0;
+  color: #3d4557;
+}
+
+.logPhase {
+  color: #8a90a0;
+  font-size: 0.68rem;
+  margin-right: 6px;
+}
+
+/* ── 최종 결과 ── */
+.finalTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.finalTable th,
+.finalTable td {
+  border-bottom: 1px solid #eeece4;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.finalTable th {
+  background: #f0efe9;
+  font-size: 0.72rem;
+  color: #2e4a78;
+}
+
+.winnerRow {
+  background: #fdf3ef;
+  font-weight: 700;
+}
+
+/* ── 공통 버튼 ── */
+.button {
+  font: inherit;
+  border: 1px solid #2e4a78;
+  background: #2e4a78;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.buttonGhost {
+  background: #ffffff;
+  color: #2e4a78;
+}

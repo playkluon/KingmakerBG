@@ -10,6 +10,9 @@ importers:
 
   apps/client:
     dependencies:
+      '@kingmakers/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@kingmakers/engine':
         specifier: workspace:*
         version: link:../../packages/engine

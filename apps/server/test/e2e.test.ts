@@ -150,8 +150,8 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
       const seatPlayer = byPlayerId(participants, `player-${i}` as PlayerId);
       view = await act(roomId, seatPlayer, { type: 'confirmAuctionBids', actor: seatPlayer.playerId });
     }
-    expect(view.phase).toBe('auctionResolved');
-    view = await act(roomId, { socket: host, token: hostToken }, { type: 'runUntilPlayerAction' });
+    // 부록 A-13: 서버가 액션 직후 자동 진행 가능한 곳까지 곧바로 이어가므로
+    // auctionResolved를 거쳐 곧장 promiseSelection에 도달한다 (수동 runUntilPlayerAction 불필요)
     expect(view.phase).toBe('promiseSelection');
 
     // ── 공약 선택 (majorBacker 전원) ────────────────────────────
@@ -170,7 +170,7 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     if (view.phase === ('promiseSelection' as string)) {
       view = await act(roomId, { socket: host, token: hostToken }, { type: 'autoSelectPromises' });
     }
-    view = await act(roomId, { socket: host, token: hostToken }, { type: 'runUntilPlayerAction' });
+    // voterReveal도 자동 진행되어 곧장 campaignActions에서 멈춘다
     expect(view.phase).toBe('campaignActions');
 
     // ── 캠페인: 라운드로빈 8액션 (전원 조건지지) ─────────────────
@@ -190,10 +190,8 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
       const backer = byPlayerId(participants, backerId);
       view = await act(roomId, backer, { type: 'skipUnification', actor: backerId });
     }
-    expect(view.phase).toBe('voting');
 
-    // ── 투표→정책→정산 (자동), 선택형 당선 효과는 실카드 조회로 처리 ──
-    view = await act(roomId, { socket: host, token: hostToken }, { type: 'runUntilPlayerAction' });
+    // ── 투표→정책→정산까지 자동 진행됨 (부록 A-13), 선택형 당선 효과만 실카드 조회로 처리 ──
     if (view.phase === 'electionEffectSelection') {
       const winner = view.round.winnerCandidateId!;
       const card = CANDIDATES.find((c) => c.id === winner)!;
@@ -203,7 +201,6 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
           ? { track: card.electionEffect.options[0]!.track, direction: card.electionEffect.options[0]!.direction }
           : { track: 'economy' as const, direction: 1 as const };
       view = await act(roomId, backer, { type: 'selectElectionPolicyMove', actor: backer.playerId, ...choice });
-      view = await act(roomId, { socket: host, token: hostToken }, { type: 'runUntilPlayerAction' });
     }
 
     // 1라운드가 끝나고 2라운드 경매에 도달한다 (풀게임 5라운드 기본)

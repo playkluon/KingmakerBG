@@ -154,8 +154,16 @@ export function registerSocketHandlers(io: Server): void {
         return ack(cb)({ ok: false, reason: result.reason });
       }
 
-      room.game = result.state;
-      broadcastLog(io, room.id, result.log);
+      // 자동 진행 가능한 phase까지 서버가 곧바로 이어서 진행한다 —
+      // §22 "플레이어가 액션해야 할 때만 화면이 멈춰야 한다" 요구사항 때문에,
+      // 특정 클라이언트(호스트)가 별도로 runUntilPlayerAction을 보내줄 때까지 기다리게 두면 안 된다 (부록 A-13).
+      // runUntilPlayerAction은 이미 결정 지점/종료 상태여도 안전하게 no-op되므로 항상 이어붙여도 된다.
+      const chained = reduce(result.state, { type: 'runUntilPlayerAction' }, CATALOG);
+      const finalState = chained.ok ? chained.state : result.state;
+      const combinedLog = chained.ok ? [...result.log, ...chained.log] : result.log;
+
+      room.game = finalState;
+      broadcastLog(io, room.id, combinedLog);
       await broadcastViews(io, room);
       // ack에 요청자 시점의 최신 뷰를 함께 돌려준다 — 브로드캐스트와의 순서 경합 없이
       // "내 액션이 반영된 상태"를 확정적으로 받을 수 있다 (클라이언트 낙관적 갱신 불필요)

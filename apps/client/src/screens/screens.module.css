@@ -1,0 +1,118 @@
+/* 기반 스킬: skills/client-lobby-table/SKILL.md — Home/Lobby 화면 전용 레이아웃 (CSS Modules) */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+  gap: 6px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.subtitle {
+  color: #6a7284;
+  margin: 0 0 20px;
+}
+
+.error {
+  background: #fdecea;
+  color: #b93a2b;
+  border: 1px solid #f2c6c0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.panels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  width: 100%;
+  max-width: 720px;
+}
+
+.panel {
+  flex: 1 1 260px;
+  background: #ffffff;
+  border: 1px solid #dcd9d0;
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panelTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #2e4a78;
+}
+
+.input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #cfccc2;
+  border-radius: 6px;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: #8a90a0;
+}
+
+.code {
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 1.1rem;
+  background: #f0efe9;
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: inline-block;
+}
+
+.wide {
+  width: 100%;
+  max-width: 720px;
+}
+
+.participantList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.participantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e3e1d8;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+}
+
+.readyBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8a90a0;
+}
+
+.readyBadgeOn {
+  color: #2e7d32;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}

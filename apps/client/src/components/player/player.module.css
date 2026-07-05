@@ -1,0 +1,204 @@
+/* 기반 스킬: skills/client-player/SKILL.md — 개인 화면 전용 컴포넌트 스타일 (CSS Modules) */
+.banner {
+  background: #eef0f4;
+  border: 1px solid #cfd4de;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.bannerActive {
+  background: #fff6e5;
+  border-color: #d8a53d;
+}
+
+.bannerTitle {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #8a6d1f;
+  margin-bottom: 2px;
+}
+
+.bannerActive .bannerTitle {
+  color: #96793b;
+}
+
+.bannerBody {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #232b3a;
+}
+
+/* ── 자원 ── */
+.resourceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.resourceItem {
+  border: 1px solid #e3e1d8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.resourceLabel {
+  font-size: 0.68rem;
+  color: #8a90a0;
+}
+
+.resourceValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.resourceDeltaUp {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #2e7d32;
+  margin-left: 2px;
+}
+
+.resourceDeltaDown {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #b93a2b;
+  margin-left: 2px;
+}
+
+/* ── 비밀 의제 ── */
+.agendaBox {
+  border: 1px dashed #96793b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: #fdfaf2;
+}
+
+.agendaMet {
+  border-style: solid;
+  background: #f2f8f0;
+  border-color: #2e7d32;
+}
+
+.agendaTitle {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #96793b;
+}
+
+.agendaName {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin: 2px 0;
+}
+
+/* ── 액션 행 ── */
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  border-bottom: 1px dashed #eeece4;
+}
+
+.actionRow:last-child {
+  border-bottom: none;
+}
+
+.actionLabel {
+  flex: 1 1 140px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.select {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid #cfccc2;
+  border-radius: 6px;
+  min-width: 140px;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: #8a90a0;
+}
+
+/* ── 선택 카드(공약/당선 효과) ── */
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.pickerCard {
+  font: inherit;
+  text-align: left;
+  border: 1px solid #cfccc2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.pickerCard:hover:not(:disabled) {
+  border-color: #2e4a78;
+}
+
+.pickerCard:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pickerCardTitle {
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+
+/* ── 입찰 스텝퍼 ── */
+.stepperList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.stepperRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stepperLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.stepperControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepperValue {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}

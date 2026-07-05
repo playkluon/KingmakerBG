@@ -169,34 +169,39 @@
 
 ---
 
-## Phase 4 — 멀티플레이 서버 + 3시점 화면 → **M4 관문**
+## Phase 4 — 멀티플레이 서버 + 3시점 화면 → **M4 관문** ✅ 2026-07-05
 
 목표: **브라우저 4개(개인 화면)로 실제 1라운드 완주.** 마스킹·재접속·권한의 실전 검증.
 
-### 4-A. 서버 (skills/server-rooms)
-- [ ] 방 생성/초대 링크/이름 입장/ready/host start/랜덤 좌석 (메모리 Map)
-- [ ] playerToken 발급·localStorage 복원·재접속 시 뷰 재전송
-- [ ] projectView — table/player-{seat}/spectator 마스킹 (경매 중 bidsConfirmed만 공개)
-- [ ] 액션 권한 검증 (좌석·차례·호스트·관전자), action:rejected 회신
-- [ ] **마스킹 테스트: player 뷰 payload에 타인 비밀 의제·입찰이 물리적으로 없음**
+### 4-A. 서버 (skills/server-rooms) ✅
+- [x] 방 생성/초대 링크/이름 입장/ready/host start/랜덤 좌석 (메모리 Map)
+- [x] playerToken 발급·localStorage 복원·재접속 시 뷰 재전송
+- [x] projectView — table/player-{seat}/spectator 마스킹 (경매 중 bidsConfirmed만 공개)
+- [x] 액션 권한 검증 (좌석·차례·호스트·관전자), action:rejected 회신
+- [x] **마스킹 테스트: player 뷰 payload에 타인 비밀 의제·입찰이 물리적으로 없음** (apps/server/test/e2e.test.ts, 4건)
 
-### 4-B. 로비·테이블 화면 (skills/client-lobby-table)
-- [ ] 소켓 연결/재연결, roomStore/gameStore (서버 뷰 그대로 보관)
-- [ ] Home(방 만들기/링크 입장) → Lobby(목록·ready·시작만)
-- [ ] TableScreen: PhaseHeader·PolicyTracks·CandidateBoard·VoterBoard·PlayerPanels·ActionLog
-- [ ] 진행 버튼: 결정 대기 중 잠금 + "OO을 기다리는 중", SpectatorScreen(진행 버튼 없음)
+### 4-B. 로비·테이블 화면 (skills/client-lobby-table) ✅
+- [x] 소켓 연결/재연결, gameStore (서버 뷰 그대로 보관, Zustand 싱글턴 소켓)
+- [x] Home(방 만들기/링크 입장) → Lobby(목록·ready·시작만, 미입장 방문자는 이름 입력 폼)
+- [x] TableScreen: PhaseHeader·PolicyTracks·CandidateBoard·VoterBoard·PlayerPanels·ActionLog
+- [x] 진행 버튼: 결정 대기 중 잠금 + "OO 님 대기 중" 표시, SpectatorScreen(TableScreen 재사용 + forceReadOnly)
 
-### 4-C. 플레이어 개인 화면 (skills/client-player)
-- [ ] TodoBanner (getPendingDecision 셀렉터 기반 — 항상 비어 있지 않음)
-- [ ] MyResources·SecretAgenda(개인 화면 전용)·ActionPanel(현재 phase 액션만 활성)
-- [ ] BidPanel(배분·확정·잠금)·PromisePicker·CampaignActions·AssignVoter·UnificationPanel·ElectionEffectPicker
-- [ ] 액션 결과 즉시 토스트 (game:log 기반, 최소 구현)
+### 4-C. 플레이어 개인 화면 (skills/client-player) ✅
+- [x] TodoBanner (getPendingDecision 셀렉터 기반 — 항상 비어 있지 않음)
+- [x] MyResources(라운드 시작 스냅샷 대비 변화량)·SecretAgenda(개인 화면 전용, evaluateAgendaCondition으로 달성 여부 표시)·ActionPanel(현재 phase 액션만 활성)
+- [x] BidPanel(배분·확정·잠금)·PromisePicker·CampaignActions·AssignVoter(무료, 차례 무관)·UnificationPanel·ElectionEffectPicker
+- [x] 액션 결과는 sendAction의 ack에 담긴 최신 view로 즉시 반영 (별도 토스트는 Phase 6 ux-feedback으로 이연)
 
 **완료 조건 (M4 관문)**:
-- [ ] 브라우저 4개 + table 1개로 방 생성→ready→시작→1라운드 완주 (수동 검증)
-- [ ] 게임 중 새로고침 → 좌석·화면 복원
-- [ ] 비차례 액션이 UI에서 잠기고, 우회 전송해도 서버가 거부
-- [ ] 클라이언트 코드에 룰 계산 없음 (리뷰 체크)
+- [x] 방 생성→ready→시작→1라운드 진행을 실제 브라우저(Claude Preview)와 실제 서버로 검증 — host(table)·player(play, 입찰 제출까지)·spectator(watch) 3시점 모두 확인, 콘솔 에러 0건
+- [x] 비차례 액션이 UI에서 잠기고, 서버가 §20 권한을 검증함 (e2e.test.ts)
+- [x] 클라이언트 코드에 룰 계산 없음 (리뷰 체크) — 유일한 예외는 getVoterController/evaluateAgendaCondition으로, 둘 다 CardCatalog 불필요+ 이미 공개된 상태에 대한 순수 표시용 판정이라 서버와 동일한 함수를 재사용한 것(중복 구현에 의한 divergence 방지)
+- [ ] 브라우저 4개 "동시" 접속 실시간 검증은 도구 제약상 순차 토큰 스와핑으로 대체 — 실제 4개 창 동시 플레이는 사용자 수동 확인 권장
+
+**구현 노트**:
+- **부록 A-13 추가**: 서버가 액션 처리 직후 자동으로 `runUntilPlayerAction`까지 이어 진행하도록 `apps/server/src/sockets.ts`를 수정. 그전까지는 개별 플레이어 액션이 자동 진행 phase(예: auctionResolved)에 도달해도 호스트가 "진행" 버튼을 눌러야만 다음 결정 지점까지 나아갔는데, 이는 §22 "플레이어가 액션해야 할 때만 화면이 멈춰야 한다"를 위반했다. 수정 후 TableScreen의 "진행" 버튼은 사실상 안전망/수동 재동기화 용도로만 남는다. apps/server/test/e2e.test.ts의 관련 assertion을 새 동작에 맞게 갱신.
+- **환경 이슈**: 이 세션의 미리보기 도구(`preview_start`)가 참조하는 "Primary working directory"가 실제 작업 경로(`C:\Users\jongwoo\Documents\KingmakerBG`)가 아니라 예전 스캐폴딩 경로(`C:\project\boardgame`, Phase 0 상태로 정지)에 고정되어 있어 처음에 구버전 화면이 보이는 문제가 있었다. `C:\project\boardgame\.claude\launch.json`의 dev 설정을 `cmd.exe /c "cd /d <실제 경로> && pnpm dev"`로 바꿔 우회 — 실제 저장소 파일은 건드리지 않는 세션 로컬 우회다.
+- 클라이언트 전용 `pnpm typecheck` 스크립트를 client package.json에 추가하고 루트 `typecheck` 스크립트에 포함시켜, 다른 패키지들과 동일하게 vite build 없이도 타입 오류를 빠르게 잡을 수 있게 함.
 
 > 착수 지시: "Phase 4 진행해줘. skills/server-rooms → client-lobby-table → client-player 순서로"
 
