@@ -245,11 +245,65 @@ export function applyPoll(): ReduceResult {
   return fail('poll은 아직 구현되지 않았습니다');
 }
 
-/** 부록 A-4: 손패 보유는 확인하되, 실제 효과는 7단계 전까지 거부한다 */
-export function applyUseEvent(state: GameState, action: Extract<PlayerAction, { type: 'useEvent' }>): ReduceResult {
+/**
+ * 부록 A-17: 이벤트 카드 사용 — assignVoterChoice/비밀 pact와 같은 성격으로 campaignActions 중 무료·차례 무관.
+ * 후보/유권자 이벤트 손패 어느 쪽이든 eventId로 찾아 소모하고, 카드에 인쇄된 효과 3유형 중 하나를 적용한다.
+ */
+export function applyUseEvent(state: GameState, action: Extract<PlayerAction, { type: 'useEvent' }>, catalog: CardCatalog): ReduceResult {
   const player = state.players.find((p) => p.id === action.actor)!;
-  if (!player.candidateEventHand.includes(action.eventId)) {
+  const fromCandidateHand = player.candidateEventHand.includes(action.eventId);
+  const fromVoterHand = player.voterEventHand.includes(action.eventId);
+  if (!fromCandidateHand && !fromVoterHand) {
     return fail('보유하지 않은 이벤트 카드입니다');
   }
-  return fail('이벤트 카드 효과는 아직 구현되지 않았습니다 (부록 A-4, 7단계에서 활성화)');
+  const card = fromCandidateHand ? catalog.candidateEvents[action.eventId] : catalog.voterEvents[action.eventId];
+  if (!card) return fail('카드 정보를 찾을 수 없습니다');
+
+  const effect = card.effect;
+  const effects: EffectDescriptor[] = [];
+  let round = state.round;
+  let players = state.players;
+
+  if (effect.kind === 'resourceDelta') {
+    const resource = effect.resource;
+    players = players.map((p) => (p.id === action.actor ? { ...p, [resource]: p[resource] + effect.amount } : p));
+    effects.push({ target: action.actor, field: resource, delta: effect.amount });
+  } else if (effect.kind === 'candidateVotesDelta') {
+    const candidateId = action.targetCandidateId;
+    if (!candidateId || !state.round.candidatesRunning.includes(candidateId)) {
+      return fail('출마 중인 후보를 지정해야 합니다');
+    }
+    round = { ...round, campaignVotes: { ...round.campaignVotes, [candidateId]: (round.campaignVotes[candidateId] ?? 0) + effect.amount } };
+    effects.push({ target: candidateId, field: 'campaignVotes', delta: effect.amount });
+  } else if (effect.kind === 'groupInfluence') {
+    const affectedVoters = state.round.votersRevealed.filter((id) => catalog.voters[id]?.group === effect.group);
+    const voterInfluence = { ...round.voterInfluence };
+    for (const voterId of affectedVoters) {
+      const current = voterInfluence[voterId] ?? {};
+      voterInfluence[voterId] = { ...current, [action.actor]: (current[action.actor] ?? 0) + effect.amount };
+    }
+    round = { ...round, voterInfluence };
+    effects.push({ target: 'game', field: 'groupInfluence', delta: effect.amount, after: effect.group });
+  }
+
+  players = players.map((p) =>
+    p.id === action.actor
+      ? {
+          ...p,
+          candidateEventHand: p.candidateEventHand.filter((id) => id !== action.eventId),
+          voterEventHand: p.voterEventHand.filter((id) => id !== action.eventId),
+        }
+      : p,
+  );
+
+  const entry = createLogEntry(
+    state,
+    'campaignActions',
+    action.actor,
+    'useEvent',
+    `${player.name}이(가) 이벤트 카드 '${card.name}'을(를) 사용했습니다`,
+    effects,
+  );
+  const next: GameState = { ...appendLog(state, entry), players, round };
+  return { ok: true, state: next, log: [entry] };
 }

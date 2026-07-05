@@ -1,8 +1,8 @@
 // 기반 스킬: skills/voters-campaign/SKILL.md
 import { describe, expect, it } from 'vitest';
 import { reduce } from '../src/reducer';
-import type { CardCatalog } from '../src/types/cards';
-import type { PlayerId } from '../src/types/ids';
+import type { CardCatalog, EventCard } from '../src/types/cards';
+import type { EventId, PlayerId } from '../src/types/ids';
 import { emptyCatalog, setupAtCampaign } from './fixtures';
 
 const PLAYERS4: [string, string, string, string] = ['A', 'B', 'C', 'D'];
@@ -163,23 +163,101 @@ describe('§11 MVP 활성 후보 능력', () => {
   });
 });
 
-describe('§29·부록 A-4: poll/useEvent', () => {
+describe('§29·부록 A-4: poll (비활성)', () => {
   it('poll은 비활성 상태로 거부된다', () => {
     const state = setupAtCampaign(11, PLAYERS4);
     const result = reduce(state, { type: 'poll', actor: 'player-0' }, emptyCatalog());
     expect(result.ok).toBe(false);
   });
+});
 
-  it('useEvent는 손패에 없는 카드면 거부되고, 손패에 있어도 효과 미구현으로 거부된다', () => {
+function eventCatalogWith(eventId: EventId, effect: EventCard['effect']): CardCatalog {
+  return {
+    ...emptyCatalog(),
+    candidateEvents: { [eventId]: { id: eventId, name: '테스트 이벤트', description: '', category: 'candidate', effect } },
+  };
+}
+
+describe('부록 A-17: useEvent 이벤트 카드 효과', () => {
+  it('보유하지 않은 카드는 거부된다', () => {
     const state = setupAtCampaign(12, PLAYERS4);
-    const notOwned = reduce(state, { type: 'useEvent', actor: 'player-0', eventId: 'event-c-99' as never }, emptyCatalog());
-    expect(notOwned.ok).toBe(false);
+    const result = reduce(state, { type: 'useEvent', actor: 'player-0', eventId: 'event-c-99' as EventId }, emptyCatalog());
+    expect(result.ok).toBe(false);
+  });
 
-    const hand = state.players.find((p) => p.id === 'player-0')!.candidateEventHand;
-    if (hand.length > 0) {
-      const owned = reduce(state, { type: 'useEvent', actor: 'player-0', eventId: hand[0]! }, emptyCatalog());
-      expect(owned.ok).toBe(false);
-      if (!owned.ok) expect(owned.reason).toContain('구현');
-    }
+  it('resourceDelta: 자원이 변하고 카드가 손패에서 사라진다', () => {
+    const eventId = 'event-c-01' as EventId;
+    let state = setupAtCampaign(13, PLAYERS4);
+    state = { ...state, players: state.players.map((p) => (p.id === 'player-0' ? { ...p, candidateEventHand: [eventId] } : p)) };
+    const moneyBefore = state.players.find((p) => p.id === 'player-0')!.money;
+    const catalog = eventCatalogWith(eventId, { kind: 'resourceDelta', resource: 'money', amount: 3 });
+
+    const result = reduce(state, { type: 'useEvent', actor: 'player-0', eventId }, catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const after = result.state.players.find((p) => p.id === 'player-0')!;
+    expect(after.money).toBe(moneyBefore + 3);
+    expect(after.candidateEventHand).toHaveLength(0);
+  });
+
+  it('candidateVotesDelta: targetCandidateId가 없거나 출마 중이 아니면 거부된다', () => {
+    const eventId = 'event-c-02' as EventId;
+    let state = setupAtCampaign(14, PLAYERS4);
+    state = { ...state, players: state.players.map((p) => (p.id === 'player-0' ? { ...p, candidateEventHand: [eventId] } : p)) };
+    const catalog = eventCatalogWith(eventId, { kind: 'candidateVotesDelta', amount: 2 });
+
+    const noTarget = reduce(state, { type: 'useEvent', actor: 'player-0', eventId }, catalog);
+    expect(noTarget.ok).toBe(false);
+
+    const notRunning = reduce(state, { type: 'useEvent', actor: 'player-0', eventId, targetCandidateId: 'candidate-999' as never }, catalog);
+    expect(notRunning.ok).toBe(false);
+  });
+
+  it('candidateVotesDelta: 지정한 출마 후보의 campaignVotes에 반영된다', () => {
+    const eventId = 'event-c-03' as EventId;
+    let state = setupAtCampaign(15, PLAYERS4);
+    state = { ...state, players: state.players.map((p) => (p.id === 'player-0' ? { ...p, candidateEventHand: [eventId] } : p)) };
+    const candidateId = state.round.candidatesRunning[1]!;
+    const before = state.round.campaignVotes[candidateId] ?? 0;
+    const catalog = eventCatalogWith(eventId, { kind: 'candidateVotesDelta', amount: -2 });
+
+    const result = reduce(state, { type: 'useEvent', actor: 'player-0', eventId, targetCandidateId: candidateId }, catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.round.campaignVotes[candidateId]).toBe(before - 2);
+  });
+
+  it('groupInfluence: 해당 그룹의 공개된 유권자 전원에게 영향력이 오른다', () => {
+    const eventId = 'event-v-01' as EventId;
+    let state = setupAtCampaign(16, PLAYERS4);
+    state = { ...state, players: state.players.map((p) => (p.id === 'player-0' ? { ...p, voterEventHand: [eventId] } : p)) };
+    const voterId = state.round.votersRevealed[0]!;
+    const otherVoterId = state.round.votersRevealed[1]!;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      voterEvents: { [eventId]: { id: eventId, name: '테스트', description: '', category: 'voter', effect: { kind: 'groupInfluence', group: 'laborers', amount: 3 } } },
+      voters: {
+        [voterId]: { id: voterId, name: '유권자1', description: '', group: 'laborers', voteWeight: 1, preferredTag: 'x', conflictTag: 'y' },
+        [otherVoterId]: { id: otherVoterId, name: '유권자2', description: '', group: 'youth', voteWeight: 1, preferredTag: 'x', conflictTag: 'y' },
+      },
+    };
+
+    const result = reduce(state, { type: 'useEvent', actor: 'player-0', eventId }, catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.round.voterInfluence[voterId]?.['player-0']).toBe(3);
+    expect(result.state.round.voterInfluence[otherVoterId]?.['player-0']).toBeUndefined();
+    expect(result.state.players.find((p) => p.id === 'player-0')!.voterEventHand).toHaveLength(0);
+  });
+
+  it('useEvent는 차례와 무관하게 언제든 가능하다(assignVoterChoice와 동일한 성격)', () => {
+    const eventId = 'event-c-04' as EventId;
+    let state = setupAtCampaign(17, PLAYERS4);
+    const notCurrent = state.players.find((p) => p.id !== state.round.campaignTurnOrder[state.round.campaignActiveIndex])!.id;
+    state = { ...state, players: state.players.map((p) => (p.id === notCurrent ? { ...p, candidateEventHand: [eventId] } : p)) };
+    const catalog = eventCatalogWith(eventId, { kind: 'resourceDelta', resource: 'organization', amount: 1 });
+
+    const result = reduce(state, { type: 'useEvent', actor: notCurrent, eventId }, catalog);
+    expect(result.ok).toBe(true);
   });
 });

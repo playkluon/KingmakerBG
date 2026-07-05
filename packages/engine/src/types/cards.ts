@@ -82,12 +82,21 @@ export interface IssueCard {
   description: string;
 }
 
+/**
+ * §5, §11 이벤트 카드 효과 3유형 (부록 A-17) — PromiseEffect/CandidateAbility와 같은 성격으로,
+ * 60장 각각이 별도 효과를 갖는 대신 소수의 재사용 가능한 유형에 수치만 다르게 배정한다.
+ */
+export type EventEffect =
+  | { kind: 'resourceDelta'; resource: 'money' | 'organization' | 'reputation'; amount: number }
+  | { kind: 'candidateVotesDelta'; amount: number }
+  | { kind: 'groupInfluence'; group: VoterGroupId; amount: number };
+
 export interface EventCard {
   id: EventId;
   name: string;
   category: 'candidate' | 'voter';
   description: string;
-  effect: { todo: true };
+  effect: EventEffect;
 }
 
 /** §17 비밀 의제 조건 11유형 */

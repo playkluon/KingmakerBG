@@ -260,19 +260,21 @@
 
 우선순위 순서 고정:
 
-1. [x] 단일화 공개 조건 계약 (정책 양보 → policy 3순서 훅 연결, 이행 수 → 최종 보너스 연결) — 부록 A-15, 엔진만(클라이언트 UI는 미착수)
-2. [x] 비밀 pact + 배신 (마스킹, rep −2·유권자 이벤트 2장·플래그) — 부록 A-16, 엔진 + 서버 마스킹 + E2E 마스킹 테스트(클라이언트 UI는 미착수)
-3. [ ] 이벤트 카드 효과 60장 (useEvent 활성화 — 손패 상한·타이밍 먼저 확정해 GAME_SPEC 부록 추가)
+1. [x] 단일화 공개 조건 계약 (정책 양보 → policy 3순서 훅 연결, 이행 수 → 최종 보너스 연결) — 부록 A-15, 엔진+클라이언트 UI(UnificationPanel 조건 첨부) 완료
+2. [x] 비밀 pact + 배신 (마스킹, rep −2·유권자 이벤트 2장·플래그) — 부록 A-16, 엔진+서버 마스킹+E2E 테스트+클라이언트 UI(SecretPactPanel) 완료
+3. [x] 이벤트 카드 효과 60장 (useEvent 활성화 — 손패 상한·타이밍 결정, GAME_SPEC 부록 A-17 추가) — 엔진+데이터 60장 전체 실효과+클라이언트 UI(EventHand) 완료
 4. [ ] 후보 능력/약점 확장 (1종 = 테스트 1세트), poll 활성화
 5. [ ] 밸런스 시뮬레이션 — bot 자동 대전 N회, 점수 분포·의제 달성률 리포트 (seed 고정 CI 재현)
 
 **완료 조건 (M7)**:
 - [x] 공개 계약 불이행 경로 부재 — 낙선 시 계약은 그냥 무효가 될 뿐, "불이행" 상태·페널티 코드 경로 자체가 없음 (unificationContract.test.ts)
-- [x] pact 마스킹 테스트 — apps/server/test/e2e.test.ts에 실소켓 기반 테스트 추가 (당사자/제3자/호스트/관전자 4개 시점 전부 검증)
+- [x] pact 마스킹 테스트 — apps/server/test/e2e.test.ts에 실소켓 기반 테스트 추가 (당사자/제3자/호스트/관전자 4개 시점 전부 검증) + Claude Preview 실브라우저로도 재확인
 - [ ] 시뮬 리포트 재현 (item 5 완료 후)
 
 **구현 노트**:
-- 단일화 계약(A-15)·비밀 pact(A-16) 모두 브리프가 "후속 규칙"으로만 언급하고 세부는 정의하지 않은 영역이라 상당 부분을 새로 설계했다 — GAME_SPEC.md 부록 A-15/A-16에 근거와 함께 기록. 두 항목 모두 **엔진 로직 + 서버 마스킹 + 테스트까지는 완료**했지만 **클라이언트 UI는 아직 없다** (UnificationPanel에 조건 첨부 UI, 새 SecretPactPanel 컴포넌트 필요) — 후속 세션/시간 허용 시 추가.
+- 단일화 계약(A-15)·비밀 pact(A-16)·이벤트 효과(A-17) 모두 브리프가 세부를 정의하지 않은 영역이라 상당 부분을 새로 설계했다 — GAME_SPEC.md 부록에 근거와 함께 기록. 세 항목 모두 엔진·서버 마스킹·테스트에 더해 **클라이언트 UI까지 완료**: UnificationPanel(조건 첨부 입력), 신규 SecretPactPanel(제안/수신/수락/거절/활성 목록), 신규 EventHand(손패 사용) — 전부 CampaignActions phase의 ActionPanel에 연결.
+- 이벤트 60장 효과는 카드마다 고유 효과 대신 재사용 가능한 3유형(resourceDelta/candidateVotesDelta/groupInfluence)에 파라미터만 배정 — 기존 PromiseEffect/CandidateAbility 관례를 따름.
+- Claude Preview로 방 생성→비밀 pact 제안→상대 수락→제3자/관전자 마스킹 확인까지 실제 소켓으로 검증(콘솔 에러 0건).
 
 ---
 

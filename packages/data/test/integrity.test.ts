@@ -68,11 +68,26 @@ describe('zod 파싱 + ID 유일성', () => {
   });
 });
 
-describe('§29·부록 A-4: 이벤트 효과는 전부 TODO', () => {
-  it('후보·유권자 이벤트 60장 모두 effect.todo === true다', () => {
+describe('부록 A-17: 이벤트 카드 효과', () => {
+  it('candidateVotesDelta/resourceDelta 효과는 0이 아니다', () => {
     [...CANDIDATE_EVENTS, ...VOTER_EVENTS].forEach((e) => {
-      expect(e.effect).toEqual({ todo: true });
+      if (e.effect.kind === 'candidateVotesDelta' || e.effect.kind === 'resourceDelta') {
+        expect(e.effect.amount).not.toBe(0);
+      }
     });
+  });
+
+  it('groupInfluence 효과의 group은 실제 유권자 그룹 값이다', () => {
+    [...CANDIDATE_EVENTS, ...VOTER_EVENTS].forEach((e) => {
+      if (e.effect.kind === 'groupInfluence') {
+        expect(VOTER_GROUPS).toContain(e.effect.group);
+        expect(e.effect.amount).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  it('유권자 이벤트 30장은 전부 groupInfluence 효과다 (부록 A-17: 헤드라인이 그룹을 명시)', () => {
+    VOTER_EVENTS.forEach((e) => expect(e.effect.kind).toBe('groupInfluence'));
   });
 });
 

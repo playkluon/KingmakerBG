@@ -48,7 +48,8 @@ export type PlayerAction =
   | { type: 'declineUnification'; actor: PlayerId }
   | { type: 'skipUnification'; actor: PlayerId }
   | { type: 'selectElectionPolicyMove'; actor: PlayerId; track: PolicyTrackId; direction: PolicyDirection }
-  | { type: 'useEvent'; actor: PlayerId; eventId: EventId } // 효과는 7단계 활성화 전까지 거부 (부록 A-4)
+  // 부록 A-17: candidateVotesDelta 효과만 대상 후보 지정이 필요하다. campaignActions 중 무료·차례 무관.
+  | { type: 'useEvent'; actor: PlayerId; eventId: EventId; targetCandidateId?: CandidateId }
   | { type: 'poll'; actor: PlayerId } // 비활성 플래그 (부록 A-4)
   | { type: 'assignVoterChoice'; actor: PlayerId; voterId: VoterId; candidateId: CandidateId }
   // §12 비밀 pact (부록 A-16) — campaignActions 중 무료·차례 무관, assignVoterChoice와 동일한 성격

@@ -23,6 +23,7 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
   const [withdrawCandidateId, setWithdrawCandidateId] = useState<CandidateId | ''>('');
   const { round } = state;
 
+  const [moneyTerm, setMoneyTerm] = useState('');
   const myCandidates = round.candidatesRunning.filter((id) => round.camps[id]?.majorBacker === myPlayerId);
   const isEligible = myCandidates.length > 0 && !round.unificationDone[myPlayerId];
   const proposal = round.pendingUnificationProposal;
@@ -46,6 +47,12 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
         <p className={styles.hint}>
           이전 비율 {Math.round(proposal.ratio * 100)}% · 예상 이전 표 {proposal.transferVotes}
         </p>
+        {proposal.terms.length > 0 && (
+          <p className={styles.hint}>
+            공개 조건: {proposal.terms.map((t) => (t.kind === 'moneyTransfer' ? `당선 시 자금 ${t.amount} 지급` : t.kind)).join(', ')}{' '}
+            (대표 후보 당선 시에만 자동 이행, 낙선하면 무효)
+          </p>
+        )}
         <div className={styles.actionsRow}>
           <button className={board.button} disabled={busy} onClick={() => run({ type: 'acceptUnification', actor: myPlayerId })}>
             수락
@@ -126,15 +133,29 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
         </select>
       </div>
       <p className={styles.hint}>이전 비율은 제안 즉시 서버가 계산해 상대에게 보여줍니다.</p>
+      <div className={styles.actionRow}>
+        <span className={styles.actionLabel}>
+          공개 조건(선택) <span className={styles.hint}>— 대표 후보 당선 시에만 자동 지급, 비워두면 조건 없음</span>
+        </span>
+        <input
+          className={styles.select}
+          type="number"
+          min={0}
+          placeholder="당선 시 지급할 자금"
+          value={moneyTerm}
+          onChange={(e) => setMoneyTerm(e.target.value)}
+        />
+      </div>
       <div className={styles.actionsRow}>
         <button
           className={board.button}
           disabled={busy || !leadCandidateId || !withdrawCandidateId}
-          onClick={() =>
-            leadCandidateId &&
-            withdrawCandidateId &&
-            run({ type: 'proposeUnification', actor: myPlayerId, leadCandidateId, withdrawCandidateId })
-          }
+          onClick={() => {
+            if (!leadCandidateId || !withdrawCandidateId) return;
+            const amount = Number(moneyTerm);
+            const terms = amount > 0 ? [{ kind: 'moneyTransfer' as const, amount }] : [];
+            run({ type: 'proposeUnification', actor: myPlayerId, leadCandidateId, withdrawCandidateId, terms });
+          }}
         >
           제안하기
         </button>

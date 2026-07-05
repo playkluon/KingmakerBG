@@ -5,7 +5,9 @@ import { AssignVoter } from './AssignVoter';
 import { BidPanel } from './BidPanel';
 import { CampaignActions } from './CampaignActions';
 import { ElectionEffectPicker } from './ElectionEffectPicker';
+import { EventHand } from './EventHand';
 import { PromisePicker } from './PromisePicker';
+import { SecretPactPanel } from './SecretPactPanel';
 import { UnificationPanel } from './UnificationPanel';
 import board from '../board/board.module.css';
 import styles from './player.module.css';
@@ -26,6 +28,8 @@ export function ActionPanel({ state, myPlayerId }: ActionPanelProps) {
         <>
           <CampaignActions state={state} myPlayerId={myPlayerId} />
           <AssignVoter state={state} myPlayerId={myPlayerId} />
+          <EventHand state={state} myPlayerId={myPlayerId} />
+          <SecretPactPanel state={state} myPlayerId={myPlayerId} />
         </>
       );
     case 'unification':

@@ -115,13 +115,21 @@ export const IssueCardSchema = z.object({
 });
 export type IssueCard = z.infer<typeof IssueCardSchema>;
 
-// ── EventCard (§4, §29, 부록 A-4: 데이터만, 효과는 전부 TODO) ───
+// ── EventCard (§4, §5, §11, 부록 A-17) ─────────────────────────
+const NonZeroIntSchema = z.number().int().refine((n) => n !== 0, { message: '0이 될 수 없습니다' });
+export const EventEffectSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('resourceDelta'), resource: z.enum(['money', 'organization', 'reputation']), amount: NonZeroIntSchema }),
+  z.object({ kind: z.literal('candidateVotesDelta'), amount: NonZeroIntSchema }),
+  z.object({ kind: z.literal('groupInfluence'), group: VoterGroupKeySchema, amount: z.number().int().positive() }),
+]);
+export type EventEffect = z.infer<typeof EventEffectSchema>;
+
 export const EventCardSchema = z.object({
   id: EventIdSchema,
   name: z.string().min(1),
   category: z.enum(['candidate', 'voter']),
   description: z.string().min(1),
-  effect: z.object({ todo: z.literal(true) }),
+  effect: EventEffectSchema,
 });
 export type EventCard = z.infer<typeof EventCardSchema>;
 
