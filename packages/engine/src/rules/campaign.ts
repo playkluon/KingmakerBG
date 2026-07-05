@@ -1,6 +1,6 @@
 // 기반 스킬: skills/voters-campaign/SKILL.md
 // §11 캠페인 액션 7종 — 좌석 순 라운드로빈, 자원 검증, MVP 활성 후보 능력 3종 반영
-import { CAMPAIGN_ACTION_COSTS, CAMPAIGN_ACTIONS_PER_PLAYER, POLL_ENABLED } from '../constants';
+import { CAMPAIGN_ACTION_COSTS, CAMPAIGN_ACTIONS_PER_PLAYER, clampResourceFloor, POLL_ENABLED } from '../constants';
 import type { CampaignActionCost } from '../constants';
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
@@ -71,9 +71,9 @@ function runTurnAction(
       p.id === actor
         ? {
             ...p,
-            money: p.money - (cost.money ?? 0),
-            organization: p.organization - (cost.organization ?? 0),
-            reputation: p.reputation - (cost.reputation ?? 0),
+            money: clampResourceFloor(p.money - (cost.money ?? 0)),
+            organization: clampResourceFloor(p.organization - (cost.organization ?? 0)),
+            reputation: clampResourceFloor(p.reputation - (cost.reputation ?? 0)),
           }
         : p,
     ),
@@ -277,7 +277,7 @@ export function applyUseEvent(state: GameState, action: Extract<PlayerAction, { 
 
   if (effect.kind === 'resourceDelta') {
     const resource = effect.resource;
-    players = players.map((p) => (p.id === action.actor ? { ...p, [resource]: p[resource] + effect.amount } : p));
+    players = players.map((p) => (p.id === action.actor ? { ...p, [resource]: clampResourceFloor(p[resource] + effect.amount) } : p));
     effects.push({ target: action.actor, field: resource, delta: effect.amount });
   } else if (effect.kind === 'candidateVotesDelta') {
     const candidateId = action.targetCandidateId;

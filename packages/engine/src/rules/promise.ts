@@ -1,5 +1,6 @@
 // 기반 스킬: skills/auction-promise/SKILL.md
 // §9 공약 선택 — majorBacker의 selectPromise, majorBacker 없는 후보의 autoSelectPromises
+import { clampResourceFloor } from '../constants';
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import type { ReduceResult } from '../result';
@@ -86,7 +87,10 @@ export function applySelectPromise(
 
   const repLoss = abilities.find((a) => a.kind === 'reputationLossOnPromise');
   if (repLoss?.kind === 'reputationLossOnPromise') {
-    next = { ...next, players: next.players.map((p) => (p.id === action.actor ? { ...p, reputation: p.reputation - repLoss.amount } : p)) };
+    next = {
+      ...next,
+      players: next.players.map((p) => (p.id === action.actor ? { ...p, reputation: clampResourceFloor(p.reputation - repLoss.amount) } : p)),
+    };
     effects.push({ target: action.actor, field: 'reputation', delta: -repLoss.amount });
   }
 

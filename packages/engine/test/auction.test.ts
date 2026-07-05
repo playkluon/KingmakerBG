@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { reduce } from '../src/reducer';
 import { INCOME_MONEY, STARTING_MONEY } from '../src/constants';
-import { bid, confirm, emptyCatalog, setupAtAuction } from './fixtures';
+import { bid, confirm, emptyCatalog, placeholderCatalog, setupAtAuction } from './fixtures';
+import type { PromiseId } from '../src/types/ids';
 
 const PLAYERS4 = ['A', 'B', 'C', 'D'];
 // setupAtAuction은 income phase(§5: money +5)를 거친 뒤 경매 단계에 도달하므로,
@@ -123,6 +124,54 @@ describe('§8 캠프 슬롯 배정', () => {
     expect(camp.majorBacker).toBe('player-0');
     expect(camp.coBacker).toBe('player-1');
     expect(camp.organizer).toBe('player-2');
+  });
+});
+
+describe('부록 A-20: 공약 옵션 draw 시 promiseRestriction(후보 약점) 회피', () => {
+  it('제시된 3장이 전부 약점 계열이어도 배제하고 다음 카드로 채우며, 배제된 카드는 덱 아래로 돌아간다', () => {
+    let state = setupAtAuction(10, PLAYERS4);
+    const [c0, c1, c2, c3] = state.round.candidatesRevealed;
+
+    // placeholderCatalog는 30장을 10개 태그(트랙×방향)로 3장씩 배정한다 — i=1,11,21이 전부 'labor:-1'
+    const restrictedIds: PromiseId[] = ['promise-1', 'promise-11', 'promise-21'];
+    const rest = state.drawPiles.promiseDeck.filter((id) => !restrictedIds.includes(id));
+    state = { ...state, drawPiles: { ...state.drawPiles, promiseDeck: [...restrictedIds, ...rest] } };
+
+    const catalog = placeholderCatalog();
+    catalog.candidates[c0!] = {
+      ...catalog.candidates[c0!]!,
+      abilities: [{ kind: 'promiseRestriction', excludedTag: 'labor:-1', active: true }],
+    };
+
+    const applyBid = (s: typeof state, actor: string, target: string, amount: number) => {
+      const r = reduce(s, { type: 'placeBid', actor: actor as never, allocations: { [target]: amount } as never }, catalog);
+      if (!r.ok) throw new Error(r.reason);
+      return r.state;
+    };
+    const applyConfirm = (s: typeof state, actor: string) => {
+      const r = reduce(s, { type: 'confirmAuctionBids', actor: actor as never }, catalog);
+      if (!r.ok) throw new Error(r.reason);
+      return r.state;
+    };
+
+    state = applyBid(state, 'player-0', c0!, 5);
+    state = applyBid(state, 'player-1', c1!, 4);
+    state = applyBid(state, 'player-2', c2!, 3);
+    state = applyBid(state, 'player-3', c3!, 1);
+    state = applyConfirm(state, 'player-0');
+    state = applyConfirm(state, 'player-1');
+    state = applyConfirm(state, 'player-2');
+    state = applyConfirm(state, 'player-3');
+
+    const camp = state.round.camps[c0!]!;
+    expect(camp.promiseOptions).toHaveLength(3);
+    for (const id of camp.promiseOptions) {
+      expect(catalog.promises[id]!.reactionTag).not.toBe('labor:-1');
+    }
+    // 배제된 3장은 사라지지 않고 덱 맨 아래로 이동해 재사용 가능하다
+    for (const id of restrictedIds) {
+      expect(state.drawPiles.promiseDeck).toContain(id);
+    }
   });
 });
 

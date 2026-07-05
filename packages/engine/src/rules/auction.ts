@@ -4,8 +4,9 @@ import { getPlayerCountConfig } from '../constants';
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import type { ReduceResult } from '../result';
+import type { CardCatalog } from '../types/cards';
 import type { PlayerAction } from '../types/actions';
-import type { CandidateId, PlayerId } from '../types/ids';
+import type { CandidateId, PlayerId, PromiseId } from '../types/ids';
 import type { ActionLogEntry, CampState, EffectDescriptor, GameState } from '../types/state';
 
 const ok = (state: GameState, log: ActionLogEntry[]): ReduceResult => ({ ok: true, state, log });
@@ -48,6 +49,7 @@ export function applyPlaceBid(state: GameState, action: Extract<PlayerAction, { 
 export function applyConfirmAuctionBids(
   state: GameState,
   action: Extract<PlayerAction, { type: 'confirmAuctionBids' }>,
+  catalog: CardCatalog,
 ): ReduceResult {
   const player = state.players.find((p) => p.id === action.actor)!;
   if (state.round.bids[action.actor]?.confirmed) {
@@ -64,7 +66,7 @@ export function applyConfirmAuctionBids(
 
   const allConfirmed = next.players.every((p) => next.round.bids[p.id]?.confirmed);
   if (allConfirmed) {
-    const resolved = resolveAuction(next);
+    const resolved = resolveAuction(next, catalog);
     next = resolved.state;
     log = [...log, ...resolved.log];
   }
@@ -73,7 +75,7 @@ export function applyConfirmAuctionBids(
 }
 
 /** §19 명시적 resolveAuction 시스템 액션 — 전원 확정 상태에서만 허용 (일반적으로는 confirmAuctionBids가 자동 실행) */
-export function applyResolveAuctionAction(state: GameState): ReduceResult {
+export function applyResolveAuctionAction(state: GameState, catalog: CardCatalog): ReduceResult {
   if (state.phase !== 'auctionBidding') {
     return fail(`지금(${state.phase})은 'resolveAuction'을(를) 할 수 없습니다`);
   }
@@ -81,7 +83,7 @@ export function applyResolveAuctionAction(state: GameState): ReduceResult {
   if (!allConfirmed) {
     return fail('아직 입찰을 확정하지 않은 플레이어가 있습니다');
   }
-  const { state: next, log } = resolveAuction(state);
+  const { state: next, log } = resolveAuction(state, catalog);
   return ok(next, log);
 }
 
@@ -126,8 +128,33 @@ function determineRunning(state: GameState, totals: CandidateTotal[]): Candidate
   return sorted.slice(0, config.runningCandidates).map((t) => t.candidateId);
 }
 
+/**
+ * 부록 A-20: 공약 옵션 3장을 뽑을 때 그 후보 자신의 promiseRestriction(약점)에 걸리는 카드는 건너뛴다.
+ * 건너뛴 카드는 버리지 않고 덱 맨 아래로 보낸다(다른 후보/라운드에는 여전히 유효한 카드이므로).
+ * 이렇게 하면 "제시된 3장이 전부 이 후보가 선택할 수 없는 계열"이라 majorBacker가 아무것도 고를 수 없는
+ * 상태(사실상의 진행 불가)가 애초에 발생하지 않는다 — selectPromise 쪽에서 사후에 막는 것만으로는 부족하다.
+ */
+function drawPromiseOptions(
+  deck: PromiseId[],
+  catalog: CardCatalog,
+  excludedTag: string | undefined,
+): { options: PromiseId[]; deck: PromiseId[] } {
+  if (!excludedTag) {
+    return { options: deck.slice(0, 3), deck: deck.slice(3) };
+  }
+  const options: PromiseId[] = [];
+  const skipped: PromiseId[] = [];
+  let i = 0;
+  for (; i < deck.length && options.length < 3; i += 1) {
+    const id = deck[i]!;
+    if (catalog.promises[id]?.reactionTag === excludedTag) skipped.push(id);
+    else options.push(id);
+  }
+  return { options, deck: [...deck.slice(i), ...skipped] };
+}
+
 /** 경매 정산 본체 — confirmAuctionBids(전원 확정)와 명시적 resolveAuction 액션이 공유한다 */
-function resolveAuction(state: GameState): { state: GameState; log: ActionLogEntry[] } {
+function resolveAuction(state: GameState, catalog: CardCatalog): { state: GameState; log: ActionLogEntry[] } {
   const totals = computeCandidateTotals(state);
   const runningOrder = determineRunning(state, totals);
   const runningSet = new Set(runningOrder);
@@ -150,8 +177,10 @@ function resolveAuction(state: GameState): { state: GameState; log: ActionLogEnt
       const coBacker = qualifyingRest[0]?.playerId ?? null;
       const organizer = config.campSlots.includes('organizer') ? (qualifyingRest[1]?.playerId ?? null) : null;
 
-      const promiseOptions = promiseDeck.slice(0, 3);
-      promiseDeck = promiseDeck.slice(promiseOptions.length);
+      const restriction = catalog.candidates[t.candidateId]?.abilities.find((a) => a.kind === 'promiseRestriction');
+      const drawn = drawPromiseOptions(promiseDeck, catalog, restriction?.kind === 'promiseRestriction' ? restriction.excludedTag : undefined);
+      const promiseOptions = drawn.options;
+      promiseDeck = drawn.deck;
 
       camps[t.candidateId] = { majorBacker, coBacker, organizer, promiseOptions, promiseId: null, totalBacking: t.total };
     } else {

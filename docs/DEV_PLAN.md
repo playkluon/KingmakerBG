@@ -253,7 +253,7 @@
 
 ---
 
-## Phase 7 — 고급 규칙 (skills/advanced-rules) → M7
+## Phase 7 — 고급 규칙 (skills/advanced-rules) → M7 ✅ 구현 완료 2026-07-05 (착수 게이트는 사용자 승인으로 생략, 실제 플레이테스트는 미실시)
 
 **착수 조건: Phase 3~5 완료 + 4인 플레이테스트 1회 이상.**
 > **2026-07-05 착수 시점 기록**: 4인 실제 플레이테스트(신규 플레이어 반응 확인)는 AI 세션이 대신할 수 없어 미충족 상태다. 사용자에게 이 사실을 알리고 "지금 플레이테스트 / 게이트 건너뛰고 진행 / 다른 작업 우선" 중 선택을 요청했고, **사용자가 명시적으로 "게이트를 건너뛰고 바로 Phase 7 진행"을 선택**해 이 조건을 의도적으로 유예하고 착수했다. 따라서 이 단계에서 만드는 고급 규칙은 실제 플레이 검증 없이 명세(GAME_SPEC.md)만으로 구현된 것이며, 추후 플레이테스트에서 재작업이 필요할 수 있다.
@@ -264,12 +264,12 @@
 2. [x] 비밀 pact + 배신 (마스킹, rep −2·유권자 이벤트 2장·플래그) — 부록 A-16, 엔진+서버 마스킹+E2E 테스트+클라이언트 UI(SecretPactPanel) 완료
 3. [x] 이벤트 카드 효과 60장 (useEvent 활성화 — 손패 상한·타이밍 결정, GAME_SPEC 부록 A-17 추가) — 엔진+데이터 60장 전체 실효과+클라이언트 UI(EventHand) 완료
 4. [x] 후보 능력/약점 확장 (1종 = 테스트 1세트), poll 활성화 — 부록 A-18
-5. [ ] 밸런스 시뮬레이션 — bot 자동 대전 N회, 점수 분포·의제 달성률 리포트 (seed 고정 CI 재현)
+5. [x] 밸런스 시뮬레이션 — bot 자동 대전 N회, 점수 분포·의제 달성률 리포트 (seed 고정 CI 재현) — 부록 A-19, A-20
 
 **완료 조건 (M7)**:
 - [x] 공개 계약 불이행 경로 부재 — 낙선 시 계약은 그냥 무효가 될 뿐, "불이행" 상태·페널티 코드 경로 자체가 없음 (unificationContract.test.ts)
 - [x] pact 마스킹 테스트 — apps/server/test/e2e.test.ts에 실소켓 기반 테스트 추가 (당사자/제3자/호스트/관전자 4개 시점 전부 검증) + Claude Preview 실브라우저로도 재확인
-- [ ] 시뮬 리포트 재현 (item 5 완료 후)
+- [x] 시뮬 리포트 재현 — packages/data/test/simulation.test.ts, seed 20개 고정, 재현성(같은 seed → 동일 리포트) 테스트 포함, `pnpm test`(루트, build:libs 선행)로 CI 재현 가능
 
 **구현 노트**:
 - 단일화 계약(A-15)·비밀 pact(A-16)·이벤트 효과(A-17) 모두 브리프가 세부를 정의하지 않은 영역이라 상당 부분을 새로 설계했다 — GAME_SPEC.md 부록에 근거와 함께 기록. 세 항목 모두 엔진·서버 마스킹·테스트에 더해 **클라이언트 UI까지 완료**: UnificationPanel(조건 첨부 입력), 신규 SecretPactPanel(제안/수신/수락/거절/활성 목록), 신규 EventHand(손패 사용) — 전부 CampaignActions phase의 ActionPanel에 연결.
@@ -277,6 +277,12 @@
 - **버그 발견(item 4)**: 후보 능력 6종 중 `promiseRestriction`·`reputationLossOnPromise`는 타입·카드 데이터·zod 스키마까지 다 있었지만 `promise.ts`가 후보의 `abilities`를 아예 읽지 않아 실제로는 완전히 무효였다(조용한 기능 누락, 에러도 안 남). `applySelectPromise`에 집행 로직 추가로 수정 — 부록 A-18. 서브에이전트에게 "능력 6종 중 실제로 집행되는 것과 타입만 있는 것을 구분해달라"는 감사(audit)를 위임해 발견함 — 이런 "타입은 있지만 아무도 안 읽는" 패턴은 grep만으로는 놓치기 쉬워 후속 스킬 작업 시에도 유효한 점검 방법으로 남겨둔다.
 - poll은 "현재 예상 득표 전원 공개"로 설계 — 기존 6개 유료 캠페인 액션과 동일한 `runTurnAction` 재사용, 클라이언트 CampaignActions에 `POLL_ENABLED` 조건부로 노출.
 - Claude Preview로 방 생성→비밀 pact 제안→상대 수락→제3자/관전자 마스킹 확인까지 실제 소켓으로 검증(콘솔 에러 0건).
+- **item 5(밸런스 시뮬레이션)에서 실제 엔진 버그 2건을 더 발견**:
+  1. **자원 음수화**: item 4의 `reputationLossOnPromise`/A-16 pact 배신 페널티가 reputation을 하한 없이 차감해, 반복 페널티를 맞으면 음수가 될 수 있었다. `runTurnAction`의 범용 자원 검사(`cost.reputation > player.reputation`)가 음수 reputation에서 **비용 0인 무료 액션까지 거부**해버려 캠페인 차례에 아무것도 못 하는 진행 불가 상태가 실제로 재현됐다. `constants.ts`에 `clampResourceFloor()`를 추가해 reputation·money가 깎이는 모든 지점에 방어적으로 적용 — 부록 A-19.
+  2. **공약 옵션 전체가 후보 약점에 걸리는 경우**: item 4에서 `promiseRestriction`을 실제로 집행하게 됐는데, 공약 옵션 3장을 뽑는 `auction.ts`는 그 후보의 약점을 전혀 고려하지 않고 있어 "제시된 3장이 전부 선택 불가"인 경우 그 캠프의 공약 선택이 영원히 끝나지 않는 진짜 소프트락 가능성이 있었다(봇이 무작위로 고르다 보니 부분적으로도 자주 걸려 표면화됨). `resolveAuction`이 draw 시점에 후보의 excludedTag를 건너뛰도록(건너뛴 카드는 덱 맨 아래로) 수정 — 부록 A-20.
+  - 두 버그 모두 engine 자체 테스트(140개)는 통과하는 상태에서 `packages/data`의 실카드 시뮬레이션으로만 드러났다 — placeholder 카탈로그로는 재현되지 않는 "특정 후보 조합 + 특정 능력" 상호작용이었기 때문. 밸런스 시뮬레이션의 원래 목적(수치 튜닝 근거)보다 **이런 조합 버그를 찾아내는 용도**로 먼저 값을 했다.
+  - 이 과정에서 루트 `package.json`의 `test` 스크립트가 워크스페이스 라이브러리를 재빌드하지 않고 `packages/data`/`apps/server`가 `@kingmakers/engine`의 (오래될 수 있는) `dist/` 산출물을 그대로 참조한다는 빌드 인프라 문제도 함께 발견해 `pnpm build:libs && pnpm -r test`로 수정 — 부록 A-19에 기록.
+  - 리포트 스냅샷(seed 20개): 승자 점수 min 23/max 38/mean 30.85(목표대 30~45 내 12/20), 의제 달성률 48.75%. 봇이 의도적으로 단순해(이벤트 카드 미사용, 단일화 항상 skip) 이 수치를 근거로 `constants.ts` 점수 상수를 바로 조정하지는 않음 — 브리프도 밸런스 확정을 MVP 범위 밖으로 명시.
 
 ---
 

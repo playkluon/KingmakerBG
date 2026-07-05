@@ -55,7 +55,7 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
     case 'runUntilPlayerAction':
       return applyRunUntilPlayerAction(state, catalog);
     case 'resolveAuction':
-      return applyResolveAuctionAction(state);
+      return applyResolveAuctionAction(state, catalog);
     case 'autoSelectPromises':
       return applyAutoSelectPromisesAction(state);
     case 'revealVoters':

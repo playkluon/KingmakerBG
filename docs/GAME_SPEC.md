@@ -914,3 +914,23 @@ URL/화면 개념:
   - `promiseRestriction`: 제시된 공약의 `reactionTag`가 `excludedTag`와 같으면 선택 자체를 거부한다(액션 검증 실패, `{ok:false}`).
   - `reputationLossOnPromise`: 공약이 확정되는 순간 majorBacker의 reputation을 `amount`만큼 즉시 차감하고 effects[]에 사유를 남긴다.
 - **poll(여론조사) 활성화**: 부록 A-4가 남긴 잠정안(money 2, 액션 소모)을 그대로 채택했다. 효과는 브리프에 없어 새로 정했다 — **현재 출마 후보들의 예상 득표(`computeVoteBreakdown` 총합)를 로그 summary로 전원에게 공개**한다. 실제 여론조사가 결과를 공표하는 것과 같은 맥락이라 요청자만 보는 비공개 정보로 만들지 않았다. `campaignActions`의 나머지 6개 유료 액션과 동일하게 `runTurnAction`(차례·비용 검증, 액션 1회 소모)을 그대로 재사용한다.
+
+### A-19. 밸런스 시뮬레이션(봇 자동 대전) — 배치 위치, 봇 휴리스틱, 그리고 자원 음수화 버그 발견
+> A-15와 같은 주의 사항이 적용된다 — 플레이테스트 없이 구현됨.
+
+- **배치 위치**: skills/advanced-rules/SKILL.md는 시뮬레이션을 `packages/engine/sim/`처럼 서술하지만, 실제로는 `packages/data/sim/`에 두었다 — CLAUDE.md 아키텍처 원칙("packages/engine 외부 의존성 0")상 engine이 실카드 데이터를 만드는 packages/data를 가져올 수 없기 때문이다. 실카드 데이터로 엔진을 통합 검증하는 `packages/data/test/engineIntegration.test.ts`와 동일한 선례를 따랐다.
+- **봇 휴리스틱**(단순 결정적 휴리스틱, "잘하는 플레이"가 아니라 "합법적으로 끝까지 진행되는 플레이"가 목표): 입찰은 공개 후보 중 무작위 1명에게 자금 일부(상한 6)를 건다. 공약은 제시된 옵션 중 무작위 선택(A-20 이후로는 제시되는 옵션 자체가 항상 legal). 캠페인 차례는 내가 미는 후보가 있으면 조건부 지지(무료), 없고 reputation>0이면 모금, 그마저 없으면 무작위 출마 후보에 조건부 지지. 단일화는 항상 skip(협상 로직은 범위 밖). 선택형 당선 효과는 첫 옵션/경제 트랙 고정. RNG는 엔진이 이미 내보내는 `createRng`/`nextInt`를 시뮬레이션 seed로 그대로 재사용해, 카드 셔플과 봇 판단이 같은 seed 계열 하나로 완전히 결정된다.
+- **테스트 3종**(`packages/data/test/simulation.test.ts`, seed 20개 고정): ①20판 전부 크래시 없이 gameEnd까지 완주 ②같은 seed 재생 시 리포트가 완전히 동일(재현성 — M7 완료 조건) ③리포트를 콘솔에 남기고, 승자 점수가 목표대(30~45 VP)를 벗어나도 `console.warn`만 하고 테스트는 실패시키지 않는다(브리프가 밸런스 확정 자체를 MVP 범위 밖으로 명시 — §29).
+- **시뮬레이션이 실제로 찾아낸 엔진 버그**: `reputationLossOnPromise`(A-18)와 비밀 pact 배신 페널티(A-16)가 reputation을 하한 없이 차감하고 있어서, 반복 페널티를 맞은 플레이어의 reputation이 음수로 떨어질 수 있었다. `runTurnAction`의 범용 자원 검사(`(cost.reputation ?? 0) > player.reputation`)는 reputation이 음수면 **비용이 0인 무료 액션(conditionalSupport 등)까지 거부**했다(`0 > 음수`가 참이 되므로) — 캠페인 차례에 아무 행동도 할 수 없는 플레이어가 생기는 실제 진행 불가 버그였다. 같은 이유로 `finalScoring.ts`의 `Math.floor(money/5)` 보너스도 money가 음수면 음수 VP를 낼 위험이 있었다.
+  - 수정: `constants.ts`에 `clampResourceFloor(amount) = Math.max(0, amount)`를 추가하고(`POLICY_TRACK_MIN/MAX`를 clamp하는 `move()`와 같은 패턴), reputation·money가 깎이는 모든 지점(`promise.ts`의 reputationLossOnPromise, `roundScoring.ts`의 pact 배신 페널티, `campaign.ts`의 runTurnAction 비용 차감과 useEvent의 resourceDelta, `policy.ts`의 단일화 계약 moneyTransfer)에 방어적으로 적용했다.
+- **부수적으로 발견한 빌드 인프라 문제**: 루트 `package.json`의 `test` 스크립트가 `pnpm -r test`뿐이라 `dev`(= `pnpm build:libs && pnpm -r --parallel dev`)와 달리 워크스페이스 라이브러리를 먼저 빌드하지 않았다. `packages/data`/`apps/server`는 `@kingmakers/engine`을 `dist/`(빌드 산출물, `package.json`의 `main` 필드)로 resolve하므로, engine 소스를 고치고 다시 빌드하지 않은 채로 `packages/data`의 테스트를 돌리면 **오래된 컴파일 결과로 조용히 통과/실패**할 수 있었다(engine 자신의 테스트는 `../src/*`를 직접 import해 이 문제에서 자유롭다). 실제로 위 reputation 버그를 소스에서 고친 직후에도 `packages/data`쪽 시뮬레이션 테스트가 계속 예전 에러로 실패해 `dist/`를 grep해서 확인했다. 수정: `test` 스크립트를 `pnpm build:libs && pnpm -r test`로 변경 — M7 완료 조건 "시뮬레이션 리포트가 CI에서 재현 가능"을 콜드 체크아웃에서도 보장한다.
+- **현재 리포트 스냅샷**(seed 1000~20000, 20판): 승자 점수 min 23 / max 38 / mean 30.85, 목표대(30~45) 내 12/20판, 의제 달성률 48.75%, `contractBonusVp` 전 게임 0(봇이 단일화를 항상 skip하므로 당연한 결과), 공동 우승 0판. 브리프가 밸런스 수치 확정을 MVP 범위 밖(§29)으로 명시하고 있고, 점수가 낮게 나온 원인의 상당 부분이 "일부러 단순하게 만든 봇"(이벤트 카드 미사용, 단일화 협상 없음)에 있어 보여, 이 리포트는 수치 조정의 근거로만 남기고 `constants.ts`의 점수 상수는 건드리지 않았다.
+
+### A-20. 공약 옵션 draw 시 후보의 promiseRestriction(약점) 회피 — draw-time 필터링
+> A-19 시뮬레이션이 실제로 재현시켜 발견한 버그. A-15와 같은 주의 사항이 적용된다 — 플레이테스트 없이 구현됨.
+
+- **문제**: A-18에서 `applySelectPromise`가 `promiseRestriction`을 실제로 집행하게 되면서, `auction.ts`의 `resolveAuction`이 `promiseOptions = promiseDeck.slice(0, 3)`으로 아무 필터링 없이 상위 3장을 제시하는 기존 로직과 충돌 가능해졌다. 만약 그 3장이 **전부** 해당 후보의 `excludedTag`와 일치하면, majorBacker는 무엇을 골라도 `selectPromise`가 거부되어 그 캠프의 공약 선택이 영원히 끝나지 않는다(=`promiseSelection` phase가 멈춘다). 봇 시뮬레이션은 무작위로 셋 중 하나를 고르다 보니 "3장 중 일부만 제한 태그"인 경우에도 자주 걸려 이 상호작용을 표면화시켰지만, "3장 전부 제한 태그"인 극단적 경우는 실제 사람 플레이에서도 이론적으로 발생 가능한 진짜 엔진 공백이었다(카드 순서 문제일 뿐 봇 전용 버그가 아니다).
+- **결정**: 공약 옵션을 뽑는 시점(draw-time)에 후보 자신의 `promiseRestriction.excludedTag`와 일치하는 카드를 건너뛰도록 `auction.ts`에 `drawPromiseOptions()`를 추가했다 — 사후에 `selectPromise`에서 막는 것만으로는 "고를 것 자체가 없는" 상태를 막지 못하기 때문이다.
+  - 덱을 순서대로 스캔하며 `excludedTag`와 일치하지 않는 카드를 3장 모을 때까지 진행하고, 스캔 중 걸러진 카드는 버리지 않고 **덱 맨 아래로** 보낸다(다른 후보·다음 라운드에는 여전히 유효한 카드이므로 폐기하지 않는다).
+  - `resolveAuction`이 이제 카드 내용(후보 abilities, 공약 reactionTag) 조회가 필요해져 `CardCatalog`를 받도록 시그니처를 바꿨고, 그 결과 `applyConfirmAuctionBids`/`applyResolveAuctionAction`도 `catalog`를 전달받게 됐다(reducer.ts·system.ts 호출부만 수정, 두 함수를 직접 호출하는 테스트는 없어 다른 파급 없음).
+  - 실카드 데이터는 `promiseRestriction`을 가진 후보가 21명 중 1명, 그 후보의 `excludedTag`를 가진 공약이 30장 중 3장뿐이라 항상 27장의 legal 카드가 남아 있다 — 덱이 A-14 회수 로직으로 사실상 소진되지 않는 한 3장을 못 채우는 경우는 없다.

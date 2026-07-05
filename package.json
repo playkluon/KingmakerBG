@@ -8,7 +8,7 @@
     "dev": "pnpm build:libs && pnpm -r --parallel dev",
     "build:libs": "pnpm --filter @kingmakers/engine build && pnpm --filter @kingmakers/data build",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm build:libs && pnpm -r test",
     "typecheck": "pnpm --filter @kingmakers/engine typecheck && pnpm --filter @kingmakers/data typecheck && pnpm --filter @kingmakers/server typecheck && pnpm --filter @kingmakers/client typecheck"
   }
 }

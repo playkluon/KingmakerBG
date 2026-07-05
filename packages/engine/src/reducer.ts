@@ -63,7 +63,7 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
     case 'placeBid':
       return applyPlaceBid(state, action);
     case 'confirmAuctionBids':
-      return applyConfirmAuctionBids(state, action);
+      return applyConfirmAuctionBids(state, action, catalog);
     case 'selectPromise':
       return applySelectPromise(state, action, catalog);
     case 'contactVoter':

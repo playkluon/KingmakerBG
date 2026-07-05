@@ -86,6 +86,17 @@ export const STARTING_VICTORY_POINTS = 0;
 export const INCOME_MONEY = 5;
 export const INCOME_ORGANIZATION = 2;
 
+/**
+ * 부록 A-19: money/organization/reputation의 하한은 0 — policyTracks가 이미 -2..2로 클램프되는 것과
+ * 같은 이유다. 비용 차감(costed action)은 이미 사전 검증돼 이 하한에 걸릴 일이 없지만,
+ * reputationLossOnPromise·비밀 pact 배신·이벤트 카드 resourceDelta처럼 "무조건 적용되는 페널티"는
+ * 사전 검증이 없어 방치하면 음수로 떨어질 수 있다. 음수 reputation은 §16-3 money/5 VP 계산처럼
+ * 무관한 다른 계산까지 조용히 오염시키므로, 적용되는 시점마다 이 함수로 하한을 강제한다.
+ */
+export function clampResourceFloor(amount: number): number {
+  return Math.max(0, amount);
+}
+
 // ── §6 정책 트랙 ──────────────────────────────────────────────
 export const POLICY_TRACKS: readonly PolicyTrackId[] = ['economy', 'labor', 'society', 'industry', 'foreign'];
 export const POLICY_TRACK_MIN = -2;

@@ -1,6 +1,7 @@
 // 기반 스킬: skills/scoring/SKILL.md
 // §15 라운드 점수 (scoring v1) — 모든 VP는 effects[]에 사유를 남긴다 (§28)
 import {
+  clampResourceFloor,
   getPlayerCountConfig,
   SCORE_CO_BACKER_WIN,
   SCORE_CONDITIONAL_SUPPORT_SUCCESS,
@@ -41,7 +42,7 @@ function settleSecretPacts(state: GameState, effects: EffectDescriptor[]): { pla
     if (isSecretPactHonored(state, pact)) continue;
     const drawn = [deck.shift(), deck.shift()].filter((id): id is EventId => id != null);
     players = players.map((p) => {
-      if (p.id === pact.proposer) return { ...p, reputation: p.reputation - 2, betrayedSecretPact: true };
+      if (p.id === pact.proposer) return { ...p, reputation: clampResourceFloor(p.reputation - 2), betrayedSecretPact: true };
       if (p.id === pact.counterparty) return { ...p, voterEventHand: [...p.voterEventHand, ...drawn] };
       return p;
     });

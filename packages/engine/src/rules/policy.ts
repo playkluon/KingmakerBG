@@ -1,6 +1,6 @@
 // 기반 스킬: skills/unification-voting/SKILL.md
 // §14 정책 변화 4순서 + §6 정책 압박 비교
-import { POLICY_TRACK_MAX, POLICY_TRACK_MIN, POLICY_TRACKS } from '../constants';
+import { clampResourceFloor, POLICY_TRACK_MAX, POLICY_TRACK_MIN, POLICY_TRACKS } from '../constants';
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import type { ReduceResult } from '../result';
@@ -41,7 +41,7 @@ function settleUnificationContract(
   for (const term of contract.terms) {
     if (term.kind === 'moneyTransfer') {
       nextPlayers = nextPlayers.map((p) => {
-        if (p.id === contract.proposer) return { ...p, money: p.money - term.amount };
+        if (p.id === contract.proposer) return { ...p, money: clampResourceFloor(p.money - term.amount) };
         if (p.id === contract.beneficiary) return { ...p, money: p.money + term.amount };
         return p;
       });
