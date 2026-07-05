@@ -934,3 +934,12 @@ URL/화면 개념:
   - 덱을 순서대로 스캔하며 `excludedTag`와 일치하지 않는 카드를 3장 모을 때까지 진행하고, 스캔 중 걸러진 카드는 버리지 않고 **덱 맨 아래로** 보낸다(다른 후보·다음 라운드에는 여전히 유효한 카드이므로 폐기하지 않는다).
   - `resolveAuction`이 이제 카드 내용(후보 abilities, 공약 reactionTag) 조회가 필요해져 `CardCatalog`를 받도록 시그니처를 바꿨고, 그 결과 `applyConfirmAuctionBids`/`applyResolveAuctionAction`도 `catalog`를 전달받게 됐다(reducer.ts·system.ts 호출부만 수정, 두 함수를 직접 호출하는 테스트는 없어 다른 파급 없음).
   - 실카드 데이터는 `promiseRestriction`을 가진 후보가 21명 중 1명, 그 후보의 `excludedTag`를 가진 공약이 30장 중 3장뿐이라 항상 27장의 legal 카드가 남아 있다 — 덱이 A-14 회수 로직으로 사실상 소진되지 않는 한 3장을 못 채우는 경우는 없다.
+
+### A-21. game:log 브로드캐스트가 projectView 마스킹을 우회하던 문제 수정
+> Phase 7 완료 후 사용자 요청으로 "비밀 정보 마스킹" 영역만 집중 검토하던 중 발견.
+
+- **문제**: `apps/server/src/sockets.ts`의 `broadcastLog`가 `reduce()`가 반환한 원본 `ActionLogEntry[]`를 `projectView`를 거치지 않고 `io.in(roomChannel).emit('game:log', log)`로 방 전체에 그대로 내보내고 있었다. `game:view`(= `projectView(state, viewer).actionLog`)는 A-16이 만든 `SECRET_PACT_ACTIONS`+`involvesViewer` 필터로 시점마다 다르게 마스킹되지만, `game:log`는 완전히 별개의 브로드캐스트 경로라 이 필터를 전혀 거치지 않았다 — `proposeSecretPact`/`acceptSecretPact`/`declineSecretPact` 로그 항목의 `actor`와 `effects[].target`(제안자·상대방의 PlayerId)이 제3자·호스트·관전자를 포함한 방의 전 소켓에 그대로 전달되고 있었다. CLAUDE.md 아키텍처 원칙 3("비밀 정보는 데이터 자체를 보내지 않는다") 위반.
+- 현재 클라이언트는 `game:log`를 구독하지 않는다(EffectToast 등은 `game:view`가 담아 온 `state.actionLog`의 길이 변화로 동작) — 그래서 화면에 직접 노출되지는 않았지만, 브라우저 devtools의 소켓 프레임 검사나 임의의 socket.io 클라이언트로 누구나 확인 가능한 실제 전송 데이터였다. "지금 아무 UI도 안 그린다"는 마스킹의 근거가 될 수 없다 — 원칙 자체가 전송 여부를 기준으로 하기 때문이고, 이후 이 채널에 UI를 얹는 순간 조용히 재발했을 것이다.
+- 기존 A-16 E2E 테스트(`apps/server/test/e2e.test.ts`)는 `room:attach`의 ack(`projectView` 결과)만 검증하고 있어 이 경로를 놓쳤다 — "올바른 채널이 맞다"만 확인했지 "다른 채널로는 안 새는가"는 확인하지 않은 전형적인 테스트 공백이었다.
+- **수정**: `views.ts`가 `projectView` 내부에서 쓰던 필터 로직을 `filterActionLog(log, viewer)`로 뽑아 export하고, `broadcastLog`를 `broadcastViews`와 동일한 패턴(방 소켓을 순회하며 각자의 `resolveViewer` 결과로 개별 필터링)으로 바꿔 두 브로드캐스트가 필터 함수 하나를 공유하게 했다 — 한쪽만 고쳐지고 다른 쪽이 새는 재발을 구조적으로 막기 위함이다.
+- **회귀 테스트**: 기존 A-16 테스트에 `game:log` 수신 검증을 추가했다. 서버가 같은 소켓 커넥션에 `game:log`를 `game:view`보다 먼저 내보내는 순서(`broadcastLog` → `broadcastViews`, 둘 다 await)를 이용해, 제3자 소켓의 "다음 `game:view` 수신"을 동기화 지점으로 삼아 그 사이 누적된 `game:log`에 비밀 로그가 없는지 검증한다(당사자 쪽은 반대로 수신됨을 함께 검증). 수정 전 코드로 되돌려 이 테스트가 실제로 실패하는 것까지 확인한 뒤 복원했다.

@@ -284,6 +284,10 @@
   - 이 과정에서 루트 `package.json`의 `test` 스크립트가 워크스페이스 라이브러리를 재빌드하지 않고 `packages/data`/`apps/server`가 `@kingmakers/engine`의 (오래될 수 있는) `dist/` 산출물을 그대로 참조한다는 빌드 인프라 문제도 함께 발견해 `pnpm build:libs && pnpm -r test`로 수정 — 부록 A-19에 기록.
   - 리포트 스냅샷(seed 20개): 승자 점수 min 23/max 38/mean 30.85(목표대 30~45 내 12/20), 의제 달성률 48.75%. 봇이 의도적으로 단순해(이벤트 카드 미사용, 단일화 항상 skip) 이 수치를 근거로 `constants.ts` 점수 상수를 바로 조정하지는 않음 — 브리프도 밸런스 확정을 MVP 범위 밖으로 명시.
 
+**Phase 7 완료 후 검토(사용자 요청 — "비밀 정보 마스킹" 영역 집중 점검)**:
+- **발견 및 수정**: `sockets.ts`의 `game:log` 브로드캐스트가 `projectView`를 거치지 않고 원본 로그를 그대로 방 전체에 보내고 있어, 비밀 pact 제안/수락/거절 로그의 actor·상대방 PlayerId가 제3자·호스트·관전자에게도 전달되고 있었다(CLAUDE.md 원칙 3 위반). 현재 클라이언트가 `game:log`를 구독하지 않아 화면엔 안 보였지만 실제 전송 데이터였다. `filterActionLog`를 `views.ts`에서 공유 export로 뽑아 `broadcastLog`도 `broadcastViews`처럼 소켓별로 필터링하도록 수정 — 부록 A-21. 회귀 테스트를 기존 A-16 E2E 테스트에 추가하고, 수정 전 코드로 되돌려 실제로 실패하는 것까지 확인.
+- **보고만 하고 판단 보류한 항목**: `roundScoring.ts`의 비밀 pact 배신 효과가 `field: 'betrayedSecretPact'`/`voterEventHand`처럼 이 메커닉에서만 쓰이는 고유한 field명을 쓰고 있어, A-16이 명시한 "그 결과로 발생하는 자원 변화는 다른 자원 변화와 동일하게 공개된다"는 의도보다 더 뚜렷하게 "누가 배신했는지"가 식별된다(다른 reputation 감소는 전부 `field: 'reputation'`을 공유). 설계 판단이 필요해 사용자에게 별도 보고.
+
 ---
 
 ## 페이즈 공통 규칙

@@ -3,7 +3,7 @@
 // 방 생성→입장→ready→start→1라운드 완주, 마스킹, 권한, 재접속을 검증한다.
 import type { AddressInfo } from 'node:net';
 import { CANDIDATES } from '@kingmakers/data';
-import type { GameAction, GameState, PlayerId } from '@kingmakers/engine';
+import type { ActionLogEntry, GameAction, GameState, PlayerId } from '@kingmakers/engine';
 import { io as connectClient, type Socket as ClientSocket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { clearRooms } from '../src/rooms';
@@ -46,6 +46,13 @@ function emitAck<T = Record<string, unknown>>(socket: ClientSocket, event: strin
 /** 다음 game:view 수신을 기다린다 */
 function nextView(socket: ClientSocket): Promise<GameState> {
   return new Promise((resolve) => socket.once('game:view', (view: GameState) => resolve(view)));
+}
+
+/** 이 시점부터 소켓이 받는 모든 game:log 브로드캐스트를 누적한다 */
+function collectLogs(socket: ClientSocket): ActionLogEntry[] {
+  const collected: ActionLogEntry[] = [];
+  socket.on('game:log', (entries: ActionLogEntry[]) => collected.push(...entries));
+  return collected;
 }
 
 interface Participant {
@@ -309,16 +316,29 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     const outsider = byPlayerId(participants, 'player-2' as PlayerId);
     const promisedCandidate = view.round.candidatesRunning[0]!;
 
+    // game:log는 game:view와 별개의 브로드캐스트 채널이다 — projectView(ack의 view 필드)만 검증하면
+    // 이 채널이 필터링 없이 원본 로그를 그대로 내보내는 우회로를 놓친다. 같은 소켓 커넥션에서
+    // game:log가 game:view보다 먼저 나가므로(sockets.ts), outsider의 다음 game:view 도착을 기다리면
+    // 그 사이에 온 game:log도 이번 액션분까지 전부 도착해 있음이 보장된다.
+    const outsiderLogs = collectLogs(outsider.socket);
+    const counterpartyLogs = collectLogs(counterparty.socket);
+    const outsiderSeesNextView = nextView(outsider.socket);
+
     view = await act(roomId, proposer, {
       type: 'proposeSecretPact',
       actor: 'player-0' as PlayerId,
       counterparty: 'player-1' as PlayerId,
       promise: { kind: 'supportCandidate', candidateId: promisedCandidate },
     });
+    await outsiderSeesNextView;
 
     // 당사자(제안자) 시점 — 대기 목록에 보인다
     expect(view.round.pendingSecretPactProposals).toHaveLength(1);
     expect(view.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(true);
+
+    // game:log 브로드캐스트: 상대(당사자)에게는 도착하지만 제3자에게는 항목 자체가 없다
+    expect(counterpartyLogs.some((e) => e.action === 'proposeSecretPact')).toBe(true);
+    expect(outsiderLogs.some((e) => e.action === 'proposeSecretPact')).toBe(false);
 
     // 상대(수신자) 시점 — 마찬가지로 보인다
     const counterpartyAttach = await emitAck<{ view: GameState }>(counterparty.socket, 'room:attach', { roomId, token: counterparty.token });

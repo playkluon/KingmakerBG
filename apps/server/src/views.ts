@@ -27,6 +27,17 @@ function involvesViewer(entry: ActionLogEntry, me: PlayerId | null): boolean {
 }
 
 /**
+ * 부록 A-16 마스킹을 actionLog 하나에 대해 적용한다 — projectView(전체 상태 스냅샷)와
+ * sockets.ts의 game:log 증분 브로드캐스트가 이 필터를 공유한다. 두 경로가 각자 필터를 따로
+ * 구현하면 한쪽만 고쳤을 때 다른 경로로 비밀 로그가 새는 사고가 나기 쉽다(실제로 game:log가
+ * 이 필터 없이 원본 로그를 그대로 내보내고 있었다 — CLAUDE.md 원칙 3 위반).
+ */
+export function filterActionLog(log: ActionLogEntry[], viewer: Viewer): ActionLogEntry[] {
+  const me = viewer.kind === 'player' ? viewer.playerId : null;
+  return log.filter((entry) => !SECRET_PACT_ACTIONS.has(entry.action) || involvesViewer(entry, me));
+}
+
+/**
  * 마스킹 대상 (부록 A-3):
  * - 타인 비밀 의제 (단, gameEnd에서는 §16에 따라 전원 공개)
  * - auctionBidding 중 타인 입찰 내용 — 확정 여부(confirmed)만 남긴다
@@ -56,7 +67,7 @@ export function projectView(state: GameState, viewer: Viewer): GameState {
   const isParty = (p: { proposer: PlayerId; counterparty: PlayerId }) => me != null && (p.proposer === me || p.counterparty === me);
   const pendingSecretPactProposals = state.round.pendingSecretPactProposals.filter(isParty);
   const activeSecretPacts = state.round.activeSecretPacts.filter(isParty);
-  const actionLog = state.actionLog.filter((entry) => !SECRET_PACT_ACTIONS.has(entry.action) || involvesViewer(entry, me));
+  const actionLog = filterActionLog(state.actionLog, viewer);
 
   return {
     ...state,

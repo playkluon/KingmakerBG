@@ -4,7 +4,7 @@ import { isPlayerAction, reduce } from '@kingmakers/engine';
 import type { ActionLogEntry, GameAction } from '@kingmakers/engine';
 import type { Server, Socket } from 'socket.io';
 import { CATALOG, createRoom, getRoom, joinRoom, setReady, startGame, toRoomStatePayload, type Room } from './rooms';
-import { projectView, type Viewer } from './views';
+import { filterActionLog, projectView, type Viewer } from './views';
 
 /**
  * 소켓 1개가 붙어 있는 방·토큰 정보 (socket.data에 보관).
@@ -53,9 +53,20 @@ async function broadcastViews(io: Server, room: Room): Promise<void> {
   }
 }
 
-/** 새 액션 로그를 방 전체에 브로드캐스트한다 (로그 summary/effects는 공개 정보만 담는다 — 부록 A-6) */
-function broadcastLog(io: Server, roomId: string, log: ActionLogEntry[]): void {
-  if (log.length > 0) io.in(roomChannel(roomId)).emit('game:log', log);
+/**
+ * 새 액션 로그를 방에 브로드캐스트한다. broadcastViews와 마찬가지로 소켓마다 시점을 따로 판정해
+ * projectView와 동일한 filterActionLog를 적용한다 — 그러지 않으면 비밀 pact 로그(부록 A-16)가
+ * game:view에서는 가려지고도 game:log로는 원본 그대로 전원에게 나가는 우회로가 생긴다.
+ */
+async function broadcastLog(io: Server, room: Room, log: ActionLogEntry[]): Promise<void> {
+  if (log.length === 0) return;
+  const sockets = await io.in(roomChannel(room.id)).fetchSockets();
+  for (const socket of sockets) {
+    const attachment = socket.data as Partial<SocketAttachment>;
+    if (attachment.roomId !== room.id) continue;
+    const filtered = filterActionLog(log, resolveViewer(room, attachment.token));
+    if (filtered.length > 0) socket.emit('game:log', filtered);
+  }
 }
 
 function broadcastRoomState(io: Server, room: Room): void {
@@ -163,7 +174,7 @@ export function registerSocketHandlers(io: Server): void {
       const combinedLog = chained.ok ? [...result.log, ...chained.log] : result.log;
 
       room.game = finalState;
-      broadcastLog(io, room.id, combinedLog);
+      await broadcastLog(io, room, combinedLog);
       await broadcastViews(io, room);
       // ack에 요청자 시점의 최신 뷰를 함께 돌려준다 — 브로드캐스트와의 순서 경합 없이
       // "내 액션이 반영된 상태"를 확정적으로 받을 수 있다 (클라이언트 낙관적 갱신 불필요)
