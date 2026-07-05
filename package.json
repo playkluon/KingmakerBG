@@ -9,6 +9,6 @@
     "build:libs": "pnpm --filter @kingmakers/engine build && pnpm --filter @kingmakers/data build",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm --filter @kingmakers/engine typecheck && pnpm --filter @kingmakers/data typecheck"
+    "typecheck": "pnpm --filter @kingmakers/engine typecheck && pnpm --filter @kingmakers/data typecheck && pnpm --filter @kingmakers/server typecheck"
   }
 }

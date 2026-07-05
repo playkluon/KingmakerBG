@@ -109,4 +109,5 @@ export { evaluateAgendaCondition } from './rules/agendas';
 export { computeFinalResult } from './rules/finalScoring';
 
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
-export { getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';
+export { getPendingDecision, getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';
+export type { PendingDecision } from './selectors';

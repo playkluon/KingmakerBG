@@ -2,12 +2,14 @@
   "name": "@kingmakers/server",
   "version": "0.1.0",
   "private": true,
-  "description": "권위 서버 — 방/좌석 관리, 뷰 마스킹 (Phase 4에서 확장)",
+  "description": "권위 서버 — 방/좌석 관리, 뷰 마스킹, 액션 권한 검증",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@kingmakers/data": "workspace:*",
@@ -19,7 +21,9 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^24.0.0",
+    "socket.io-client": "^4.8.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0"
   }
 }
