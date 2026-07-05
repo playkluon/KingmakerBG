@@ -263,7 +263,7 @@
 1. [x] 단일화 공개 조건 계약 (정책 양보 → policy 3순서 훅 연결, 이행 수 → 최종 보너스 연결) — 부록 A-15, 엔진+클라이언트 UI(UnificationPanel 조건 첨부) 완료
 2. [x] 비밀 pact + 배신 (마스킹, rep −2·유권자 이벤트 2장·플래그) — 부록 A-16, 엔진+서버 마스킹+E2E 테스트+클라이언트 UI(SecretPactPanel) 완료
 3. [x] 이벤트 카드 효과 60장 (useEvent 활성화 — 손패 상한·타이밍 결정, GAME_SPEC 부록 A-17 추가) — 엔진+데이터 60장 전체 실효과+클라이언트 UI(EventHand) 완료
-4. [ ] 후보 능력/약점 확장 (1종 = 테스트 1세트), poll 활성화
+4. [x] 후보 능력/약점 확장 (1종 = 테스트 1세트), poll 활성화 — 부록 A-18
 5. [ ] 밸런스 시뮬레이션 — bot 자동 대전 N회, 점수 분포·의제 달성률 리포트 (seed 고정 CI 재현)
 
 **완료 조건 (M7)**:
@@ -274,6 +274,8 @@
 **구현 노트**:
 - 단일화 계약(A-15)·비밀 pact(A-16)·이벤트 효과(A-17) 모두 브리프가 세부를 정의하지 않은 영역이라 상당 부분을 새로 설계했다 — GAME_SPEC.md 부록에 근거와 함께 기록. 세 항목 모두 엔진·서버 마스킹·테스트에 더해 **클라이언트 UI까지 완료**: UnificationPanel(조건 첨부 입력), 신규 SecretPactPanel(제안/수신/수락/거절/활성 목록), 신규 EventHand(손패 사용) — 전부 CampaignActions phase의 ActionPanel에 연결.
 - 이벤트 60장 효과는 카드마다 고유 효과 대신 재사용 가능한 3유형(resourceDelta/candidateVotesDelta/groupInfluence)에 파라미터만 배정 — 기존 PromiseEffect/CandidateAbility 관례를 따름.
+- **버그 발견(item 4)**: 후보 능력 6종 중 `promiseRestriction`·`reputationLossOnPromise`는 타입·카드 데이터·zod 스키마까지 다 있었지만 `promise.ts`가 후보의 `abilities`를 아예 읽지 않아 실제로는 완전히 무효였다(조용한 기능 누락, 에러도 안 남). `applySelectPromise`에 집행 로직 추가로 수정 — 부록 A-18. 서브에이전트에게 "능력 6종 중 실제로 집행되는 것과 타입만 있는 것을 구분해달라"는 감사(audit)를 위임해 발견함 — 이런 "타입은 있지만 아무도 안 읽는" 패턴은 grep만으로는 놓치기 쉬워 후속 스킬 작업 시에도 유효한 점검 방법으로 남겨둔다.
+- poll은 "현재 예상 득표 전원 공개"로 설계 — 기존 6개 유료 캠페인 액션과 동일한 `runTurnAction` 재사용, 클라이언트 CampaignActions에 `POLL_ENABLED` 조건부로 노출.
 - Claude Preview로 방 생성→비밀 pact 제안→상대 수락→제3자/관전자 마스킹 확인까지 실제 소켓으로 검증(콘솔 에러 0건).
 
 ---

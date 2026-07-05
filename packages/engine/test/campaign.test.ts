@@ -1,11 +1,30 @@
 // 기반 스킬: skills/voters-campaign/SKILL.md
 import { describe, expect, it } from 'vitest';
 import { reduce } from '../src/reducer';
-import type { CardCatalog, EventCard } from '../src/types/cards';
-import type { EventId, PlayerId } from '../src/types/ids';
-import { emptyCatalog, setupAtCampaign } from './fixtures';
+import type { CandidateAbility, CardCatalog, EventCard } from '../src/types/cards';
+import type { CandidateId, EventId, PlayerId } from '../src/types/ids';
+import { bid, confirm, emptyCatalog, setupAtAuction, setupAtCampaign } from './fixtures';
 
 const PLAYERS4: [string, string, string, string] = ['A', 'B', 'C', 'D'];
+
+/** promiseSelection phase에 정확히 멈춘 상태를 만든다 (setupAtCampaign은 그 이후까지 진행해버린다) */
+function setupAtPromiseSelection(seed: number) {
+  let state = setupAtAuction(seed, PLAYERS4);
+  const [c0, c1, c2, c3] = state.round.candidatesRevealed;
+  state = bid(state, 'player-0', { [c0!]: 6 });
+  state = bid(state, 'player-1', { [c1!]: 4 });
+  state = bid(state, 'player-2', { [c2!]: 3 });
+  state = bid(state, 'player-3', { [c3!]: 2 });
+  state = confirm(state, 'player-0');
+  state = confirm(state, 'player-1');
+  state = confirm(state, 'player-2');
+  state = confirm(state, 'player-3');
+  const advanced = reduce(state, { type: 'runUntilPlayerAction' }, emptyCatalog());
+  if (!advanced.ok) throw new Error(`fixture 준비 실패: ${advanced.reason}`);
+  state = advanced.state;
+  if (state.phase !== 'promiseSelection') throw new Error(`fixture 준비 실패: phase=${state.phase}`);
+  return state;
+}
 
 describe('§11 캠페인 액션 — 라운드로빈', () => {
   it('차례가 아닌 플레이어의 액션은 거부된다', () => {
@@ -161,13 +180,144 @@ describe('§11 MVP 활성 후보 능력', () => {
     // 기본 비용 org 1에서 할인 1 -> 0
     expect(after.organization).toBe(before.organization);
   });
+
+  it('정책 압박 할인(policyPressureDiscount) 능력은 조직력 비용을 낮춘다', () => {
+    const state = setupAtCampaign(18, PLAYERS4);
+    const [c0] = state.round.candidatesRunning;
+    const majorBacker = state.round.camps[c0!]!.majorBacker!;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      candidates: {
+        [c0!]: {
+          id: c0!,
+          name: '테스트',
+          description: '',
+          baseVotes: 1,
+          leaningTags: ['x'],
+          supportedVoterGroups: ['laborers'],
+          electionEffect: { kind: 'flexPolicyMove', amount: 1 },
+          abilities: [{ kind: 'policyPressureDiscount', amount: 1, active: true }],
+        },
+      },
+    };
+    const before = state.players.find((p) => p.id === majorBacker)!;
+    const result = reduce(state, { type: 'pressurePolicy', actor: majorBacker, track: 'economy', direction: 1 }, catalog);
+    if (!result.ok) throw new Error(result.reason);
+    const after = result.state.players.find((p) => p.id === majorBacker)!;
+    // 기본 비용 org 2에서 할인 1 -> 1
+    expect(after.organization).toBe(before.organization - 1);
+  });
 });
 
-describe('§29·부록 A-4: poll (비활성)', () => {
-  it('poll은 비활성 상태로 거부된다', () => {
-    const state = setupAtCampaign(11, PLAYERS4);
-    const result = reduce(state, { type: 'poll', actor: 'player-0' }, emptyCatalog());
+describe('부록 A-18: promiseRestriction/reputationLossOnPromise (후보 자신의 약점)', () => {
+  function candidateWithAbility(id: CandidateId, ability: CandidateAbility) {
+    return {
+      id,
+      name: '테스트',
+      description: '',
+      baseVotes: 1,
+      leaningTags: ['x'],
+      supportedVoterGroups: ['laborers' as const],
+      electionEffect: { kind: 'flexPolicyMove' as const, amount: 1 },
+      abilities: [ability],
+    };
+  }
+
+  it('promiseRestriction: 제외 태그와 일치하는 공약은 선택이 거부된다', () => {
+    const state = setupAtPromiseSelection(19);
+    const [c0] = state.round.candidatesRunning;
+    const majorBacker = state.round.camps[c0!]!.majorBacker!;
+    const promiseId = state.round.camps[c0!]!.promiseOptions[0]!;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      candidates: { [c0!]: candidateWithAbility(c0!, { kind: 'promiseRestriction', excludedTag: 'economy-1', active: true }) },
+      promises: {
+        [promiseId]: {
+          id: promiseId,
+          name: '금지된 공약',
+          description: '',
+          policyMove: { track: 'economy', direction: 1, amount: 1 },
+          reactionTag: 'economy-1',
+          effect: { kind: 'extraVotes', amount: 1 },
+        },
+      },
+    };
+    const result = reduce(state, { type: 'selectPromise', actor: majorBacker, candidateId: c0!, promiseId }, catalog);
     expect(result.ok).toBe(false);
+  });
+
+  it('promiseRestriction: 제외 태그와 다른 공약은 정상적으로 선택된다', () => {
+    const state = setupAtPromiseSelection(20);
+    const [c0] = state.round.candidatesRunning;
+    const majorBacker = state.round.camps[c0!]!.majorBacker!;
+    const promiseId = state.round.camps[c0!]!.promiseOptions[0]!;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      candidates: { [c0!]: candidateWithAbility(c0!, { kind: 'promiseRestriction', excludedTag: 'labor-1', active: true }) },
+      promises: {
+        [promiseId]: {
+          id: promiseId,
+          name: '허용된 공약',
+          description: '',
+          policyMove: { track: 'economy', direction: 1, amount: 1 },
+          reactionTag: 'economy-1',
+          effect: { kind: 'extraVotes', amount: 1 },
+        },
+      },
+    };
+    const result = reduce(state, { type: 'selectPromise', actor: majorBacker, candidateId: c0!, promiseId }, catalog);
+    expect(result.ok).toBe(true);
+  });
+
+  it('reputationLossOnPromise: 공약 선택 시 평판이 깎인다', () => {
+    const state = setupAtPromiseSelection(21);
+    const [c0] = state.round.candidatesRunning;
+    const majorBacker = state.round.camps[c0!]!.majorBacker!;
+    const promiseId = state.round.camps[c0!]!.promiseOptions[0]!;
+    const before = state.players.find((p) => p.id === majorBacker)!.reputation;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      candidates: { [c0!]: candidateWithAbility(c0!, { kind: 'reputationLossOnPromise', amount: 1, active: true }) },
+      promises: {
+        [promiseId]: {
+          id: promiseId,
+          name: '테스트 공약',
+          description: '',
+          policyMove: { track: 'economy', direction: 1, amount: 1 },
+          reactionTag: 'economy-1',
+          effect: { kind: 'extraVotes', amount: 1 },
+        },
+      },
+    };
+    const result = reduce(state, { type: 'selectPromise', actor: majorBacker, candidateId: c0!, promiseId }, catalog);
+    if (!result.ok) throw new Error(result.reason);
+    const after = result.state.players.find((p) => p.id === majorBacker)!;
+    expect(after.reputation).toBe(before - 1);
+  });
+});
+
+describe('부록 A-18: poll(여론조사) 활성화', () => {
+  it('poll을 실행하면 자금 2를 쓰고 현재 예상 득표가 로그 summary로 공개된다', () => {
+    const state = setupAtCampaign(22, PLAYERS4);
+    const before = state.players.find((p) => p.id === 'player-0')!;
+    const catalog: CardCatalog = {
+      ...emptyCatalog(),
+      candidates: Object.fromEntries(
+        state.round.candidatesRunning.map((id) => [
+          id,
+          { id, name: `후보-${id}`, description: '', baseVotes: 3, leaningTags: ['x'], supportedVoterGroups: ['laborers' as const], electionEffect: { kind: 'flexPolicyMove' as const, amount: 1 }, abilities: [] },
+        ]),
+      ),
+    };
+    const result = reduce(state, { type: 'poll', actor: 'player-0' }, catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const after = result.state.players.find((p) => p.id === 'player-0')!;
+    expect(after.money).toBe(before.money - 2);
+    const entry = result.log[0]!;
+    for (const id of state.round.candidatesRunning) {
+      expect(entry.summary).toContain(`후보-${id}`);
+    }
   });
 });
 

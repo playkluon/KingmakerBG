@@ -100,7 +100,8 @@ export type CampaignActionType =
   | 'fundraise'
   | 'reportScandal'
   | 'conditionalSupport'
-  | 'assignVoterChoice';
+  | 'assignVoterChoice'
+  | 'poll';
 
 export interface CampaignActionCost {
   money?: number;
@@ -116,6 +117,8 @@ export const CAMPAIGN_ACTION_COSTS: Readonly<Record<CampaignActionType, Campaign
   reportScandal: { money: 2, reputation: 1 },
   conditionalSupport: {},
   assignVoterChoice: {},
+  // 부록 A-4 잠정안대로 money 2 — 부록 A-18에서 활성화하며 그대로 채택
+  poll: { money: 2 },
 };
 
 /** 액션 소모 여부 — assignVoterChoice(배치)만 무료 보조 권한이라 액션을 소모하지 않는다 */
@@ -127,13 +130,14 @@ export const CAMPAIGN_ACTION_CONSUMES_TURN: Readonly<Record<CampaignActionType, 
   reportScandal: true,
   conditionalSupport: true,
   assignVoterChoice: false,
+  poll: true,
 };
 
 export const CAMPAIGN_ACTIONS_PER_PLAYER = 2;
 
-// ── 부록 A-4: 미정 액션 잠정 처리 ──────────────────────────────
-/** poll(여론조사) 비활성 플래그 — 비용/효과가 브리프에 미정이라 타입·자리만 두고 막아둔다 */
-export const POLL_ENABLED = false;
+// ── 부록 A-18: poll(여론조사) 활성화 ────────────────────────────
+/** 부록 A-4의 잠정안(money 2)을 그대로 채택해 활성화했다 — 효과는 현재 예상 득표 공개 (부록 A-18) */
+export const POLL_ENABLED = true;
 
 // ── §15 라운드 점수 (scoring v1) ────────────────────────────────
 export const SCORE_MAJOR_BACKER_WIN = 4;

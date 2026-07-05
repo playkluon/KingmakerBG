@@ -1,8 +1,8 @@
 // 기반 스킬: skills/client-player/SKILL.md
 // 캠페인 액션 버튼 + 대상 선택, 남은 액션 수(2개) 표시 (§11)
-// poll/useEvent는 부록 A-4에 따라 아직 비활성이라 이 패널에 노출하지 않는다.
+// useEvent는 별도 EventHand 컴포넌트가 담당한다. poll은 부록 A-18로 활성화되어 여기 포함된다.
 import { useState } from 'react';
-import { CAMPAIGN_ACTIONS_PER_PLAYER, CAMPAIGN_ACTION_COSTS, POLICY_TRACKS } from '@kingmakers/engine';
+import { CAMPAIGN_ACTIONS_PER_PLAYER, CAMPAIGN_ACTION_COSTS, POLICY_TRACKS, POLL_ENABLED } from '@kingmakers/engine';
 import type {
   CampaignActionCost,
   CandidateId,
@@ -109,6 +109,17 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
         disabled={busy}
         onRun={(track, direction) => run({ type: 'pressurePolicy', actor: myPlayerId, track, direction })}
       />
+
+      {POLL_ENABLED && (
+        <div className={styles.actionRow}>
+          <span className={styles.actionLabel}>
+            여론조사 <span className={styles.hint}>({costLabel(CAMPAIGN_ACTION_COSTS.poll)}, 결과는 전원에게 공개)</span>
+          </span>
+          <button className={board.button} disabled={busy} onClick={() => run({ type: 'poll', actor: myPlayerId })}>
+            실행
+          </button>
+        </div>
+      )}
     </div>
   );
 }

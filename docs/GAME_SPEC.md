@@ -905,3 +905,12 @@ URL/화면 개념:
 - **손패 상한: 없음.** 라운드당 최대 1장씩 들어오고(§5 수입), 5라운드 기준으로도 손패가 5장을 넘지 않아 관리 부담이 크지 않다고 판단해 별도 상한 규칙을 추가하지 않았다.
 - **사용 타이밍: `campaignActions` phase 중 언제든, 차례·비용 무관.** `assignVoterChoice`·비밀 pact 제안과 같은 "무료 보조 권한" 성격으로 통일했다 — 이벤트 카드를 캠페인 액션 2회 중 하나로 소모하게 하면 다른 7종 액션보다 항상 비효율적이 되어 사실상 죽은 자원이 될 위험이 있었다.
 - `useEvent`는 `candidateEventHand`와 `voterEventHand`(부록 A-16에서 신설) 양쪽에서 eventId를 찾아 소모한다 — 카드가 어느 손패에서 왔는지에 따라 조회할 카탈로그(`candidateEvents`/`voterEvents`)만 달라질 뿐 처리 로직은 동일하다.
+
+### A-18. 후보 능력 2종 실제 집행 + poll(여론조사) 활성화
+> A-15와 같은 주의 사항이 적용된다 — 플레이테스트 없이 구현됨.
+
+- **후보 능력 집행 공백 발견**: `CandidateAbility`의 6유형 중 `fundraiseBonus`/`voterContactDiscount`/`policyPressureDiscount`는 이미 `campaign.ts`에 실제로 연결되어 있었지만, `promiseRestriction`(candidate-09 "서다영")과 `reputationLossOnPromise`(candidate-05 "한지수")는 타입·카드 데이터·zod 스키마까지 전부 존재하면서도 `promise.ts`의 `applySelectPromise`가 후보의 `abilities`를 아예 조회하지 않아 **실제로는 아무 효과도 없었다** — 카드에 적혀 있는 약점이 게임에 반영되지 않는 조용한 버그였다.
+  - 결정: `applySelectPromise`에서 **선택 대상 후보 자신의** `abilities`만 확인한다(campaign.ts의 액션 능력들처럼 "내가 미는 모든 후보"를 모으지 않는다) — `promiseRestriction`/`reputationLossOnPromise`는 그 후보 개인의 특성이지, 같이 후원 중인 다른 후보에게 전이될 이유가 없기 때문이다.
+  - `promiseRestriction`: 제시된 공약의 `reactionTag`가 `excludedTag`와 같으면 선택 자체를 거부한다(액션 검증 실패, `{ok:false}`).
+  - `reputationLossOnPromise`: 공약이 확정되는 순간 majorBacker의 reputation을 `amount`만큼 즉시 차감하고 effects[]에 사유를 남긴다.
+- **poll(여론조사) 활성화**: 부록 A-4가 남긴 잠정안(money 2, 액션 소모)을 그대로 채택했다. 효과는 브리프에 없어 새로 정했다 — **현재 출마 후보들의 예상 득표(`computeVoteBreakdown` 총합)를 로그 summary로 전원에게 공개**한다. 실제 여론조사가 결과를 공표하는 것과 같은 맥락이라 요청자만 보는 비공개 정보로 만들지 않았다. `campaignActions`의 나머지 6개 유료 액션과 동일하게 `runTurnAction`(차례·비용 검증, 액션 1회 소모)을 그대로 재사용한다.

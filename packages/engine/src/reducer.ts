@@ -81,7 +81,7 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
     case 'assignVoterChoice':
       return applyAssignVoterChoice(state, action);
     case 'poll':
-      return applyPoll();
+      return applyPoll(state, action, catalog);
     case 'useEvent':
       return applyUseEvent(state, action, catalog);
     case 'proposeUnification':

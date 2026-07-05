@@ -4,6 +4,7 @@ import { CAMPAIGN_ACTION_COSTS, CAMPAIGN_ACTIONS_PER_PLAYER, POLL_ENABLED } from
 import type { CampaignActionCost } from '../constants';
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
+import { computeVoteBreakdown } from './voting';
 import type { ReduceResult } from '../result';
 import type { CandidateAbility, CardCatalog } from '../types/cards';
 import type { GameAction, PlayerAction } from '../types/actions';
@@ -237,12 +238,22 @@ export function applyConditionalSupport(
   );
 }
 
-/** 부록 A-4: 비용/효과가 브리프에 미정이라 비활성 플래그로 막아둔다 */
-export function applyPoll(): ReduceResult {
+/**
+ * 부록 A-18: 여론조사 — 현재 출마 후보들의 예상 득표(computeVoteBreakdown 총합)를 공개 로그로 발표한다.
+ * "여론조사 발표"는 실제 정치에서도 결과가 공개되므로 요청자만 보는 게 아니라 summary로 전원에게 공개한다.
+ */
+export function applyPoll(state: GameState, action: Extract<PlayerAction, { type: 'poll' }>, catalog: CardCatalog): ReduceResult {
   if (!POLL_ENABLED) {
     return fail('poll(여론조사) 기능은 아직 비활성화되어 있습니다 (부록 A-4)');
   }
-  return fail('poll은 아직 구현되지 않았습니다');
+  const player = state.players.find((p) => p.id === action.actor)!;
+  const breakdown = computeVoteBreakdown(state, catalog);
+  const results = state.round.candidatesRunning
+    .map((id) => `${catalog.candidates[id]?.name ?? id} ${breakdown[id]?.total ?? 0}표`)
+    .join(', ');
+  const summary = `${player.name}이(가) 여론조사를 실시했습니다 — ${results}`;
+
+  return runTurnAction(state, action.actor, CAMPAIGN_ACTION_COSTS.poll, 'poll', summary, [], (s) => s);
 }
 
 /**
