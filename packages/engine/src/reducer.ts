@@ -17,6 +17,7 @@ import {
 } from './rules/campaign';
 import { applyAssignVoterChoice } from './rules/voters';
 import { applySelectElectionPolicyMove } from './rules/electionEffects';
+import { applyAcceptSecretPact, applyDeclineSecretPact, applyProposeSecretPact } from './rules/secretPact';
 import {
   applyAcceptUnification,
   applyDeclineUnification,
@@ -93,6 +94,12 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
       return applySkipUnification(state, action);
     case 'selectElectionPolicyMove':
       return applySelectElectionPolicyMove(state, action, catalog);
+    case 'proposeSecretPact':
+      return applyProposeSecretPact(state, action);
+    case 'acceptSecretPact':
+      return applyAcceptSecretPact(state, action);
+    case 'declineSecretPact':
+      return applyDeclineSecretPact(state, action);
     default: {
       // §20 플레이어 액션 17종을 모두 처리했으므로 도달 불가 — 타입 누락을 컴파일 타임에 잡기 위한 안전장치
       const exhaustiveCheck: never = action;

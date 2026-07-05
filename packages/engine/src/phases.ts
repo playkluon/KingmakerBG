@@ -106,6 +106,9 @@ export const PLAYER_ACTION_PHASE: Readonly<Record<PlayerAction['type'], PhaseId>
   selectElectionPolicyMove: 'electionEffectSelection',
   useEvent: 'campaignActions',
   poll: 'campaignActions',
+  proposeSecretPact: 'campaignActions',
+  acceptSecretPact: 'campaignActions',
+  declineSecretPact: 'campaignActions',
 };
 
 /** §19 시스템 액션이 유효한 phase (지정 없으면 여러 phase에서 허용) */

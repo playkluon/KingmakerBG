@@ -1,5 +1,6 @@
 // 기반 스킬: skills/scoring/SKILL.md
 // §16 최종 점수와 승리 — 공개 VP + 비밀 의제 + money/reputation/공개계약 보너스, 동점 처리 v0.3
+import { SCORE_CONTRACT_LEADER_BONUS } from '../constants';
 import { evaluateAgendaCondition } from './agendas';
 import type { CardCatalog } from '../types/cards';
 import type { PlayerId } from '../types/ids';
@@ -40,8 +41,8 @@ function compareTuples(a: number[], b: number[]): number {
  */
 export function computeFinalResult(state: GameState, catalog: CardCatalog): FinalResultSummary {
   const reputationLeader = soleLeader(state.players, (p) => p.reputation);
-  // 공개 계약 이행 수 — Skill 12(고급 규칙) 전까지 전원 0이라 단독 1등이 존재하지 않는다
-  const contractLeader: PlayerId | null = null;
+  // §16-5, 부록 A-15: 공개 계약 이행 수 단독 1등 — 아무도 이행하지 않았으면(전원 0) 동률이라 아무도 못 받는다
+  const contractLeader = soleLeader(state.players, (p) => p.contractsFulfilled);
 
   const entries: FinalScoreEntry[] = state.players.map((player) => {
     const agenda = player.secretAgendaId ? catalog.agendas[player.secretAgendaId] : undefined;
@@ -49,7 +50,7 @@ export function computeFinalResult(state: GameState, catalog: CardCatalog): Fina
     const agendaVp = agendaMet && agenda ? agenda.points : 0;
     const moneyBonusVp = Math.floor(player.money / 5);
     const reputationBonusVp = reputationLeader === player.id ? 2 : 0;
-    const contractBonusVp = contractLeader === player.id ? 2 : 0;
+    const contractBonusVp = contractLeader === player.id ? SCORE_CONTRACT_LEADER_BONUS : 0;
     return {
       playerId: player.id,
       baseVp: player.victoryPoints,

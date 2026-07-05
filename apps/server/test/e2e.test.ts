@@ -277,4 +277,73 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
       expect(player.candidateEventHand).toHaveLength(0);
     }
   });
+
+  it('부록 A-16: 비밀 pact는 당사자 외 어떤 시점(타 플레이어·호스트·관전자)에도 보이지 않는다', async () => {
+    clearRooms();
+    const { roomId, hostToken, host, participants } = await setupStartedRoom();
+
+    // campaignActions까지 진입 (경매 → 공약)
+    const attach0 = await emitAck<{ view: GameState }>(participants[0]!.socket, 'room:attach', { roomId, token: participants[0]!.token });
+    let view = attach0.view;
+    const candidates = view.round.candidatesRevealed;
+    const amounts = [6, 4, 3, 2];
+    for (let i = 0; i < 4; i += 1) {
+      const p = byPlayerId(participants, `player-${i}` as PlayerId);
+      view = await act(roomId, p, { type: 'placeBid', actor: p.playerId, allocations: { [candidates[i]!]: amounts[i]! } });
+    }
+    for (let i = 0; i < 4; i += 1) {
+      const p = byPlayerId(participants, `player-${i}` as PlayerId);
+      view = await act(roomId, p, { type: 'confirmAuctionBids', actor: p.playerId });
+    }
+    for (const candidateId of [...view.round.candidatesRunning]) {
+      if (view.phase !== 'promiseSelection') break;
+      const camp = view.round.camps[candidateId]!;
+      if (!camp.majorBacker) continue;
+      const backer = byPlayerId(participants, camp.majorBacker);
+      view = await act(roomId, backer, { type: 'selectPromise', actor: camp.majorBacker, candidateId, promiseId: camp.promiseOptions[0]! });
+    }
+    expect(view.phase).toBe('campaignActions');
+
+    const proposer = byPlayerId(participants, 'player-0' as PlayerId);
+    const counterparty = byPlayerId(participants, 'player-1' as PlayerId);
+    const outsider = byPlayerId(participants, 'player-2' as PlayerId);
+    const promisedCandidate = view.round.candidatesRunning[0]!;
+
+    view = await act(roomId, proposer, {
+      type: 'proposeSecretPact',
+      actor: 'player-0' as PlayerId,
+      counterparty: 'player-1' as PlayerId,
+      promise: { kind: 'supportCandidate', candidateId: promisedCandidate },
+    });
+
+    // 당사자(제안자) 시점 — 대기 목록에 보인다
+    expect(view.round.pendingSecretPactProposals).toHaveLength(1);
+    expect(view.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(true);
+
+    // 상대(수신자) 시점 — 마찬가지로 보인다
+    const counterpartyAttach = await emitAck<{ view: GameState }>(counterparty.socket, 'room:attach', { roomId, token: counterparty.token });
+    expect(counterpartyAttach.view!.round.pendingSecretPactProposals).toHaveLength(1);
+
+    // 제3자(당사자 아닌 참가자) 시점 — 데이터도, 로그도 없다
+    const outsiderAttach = await emitAck<{ view: GameState }>(outsider.socket, 'room:attach', { roomId, token: outsider.token });
+    expect(outsiderAttach.view!.round.pendingSecretPactProposals).toHaveLength(0);
+    expect(outsiderAttach.view!.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(false);
+
+    // 호스트(table) 시점 — 마찬가지로 전부 제거된다
+    const hostAttach = await emitAck<{ view: GameState }>(host, 'room:attach', { roomId, token: hostToken });
+    expect(hostAttach.view!.round.pendingSecretPactProposals).toHaveLength(0);
+    expect(hostAttach.view!.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(false);
+
+    // 관전자(토큰 없음) 시점 — 마찬가지로 전부 제거된다
+    const spectator = await connect();
+    const spectatorAttach = await emitAck<{ view: GameState }>(spectator, 'room:attach', { roomId });
+    expect(spectatorAttach.view!.round.pendingSecretPactProposals).toHaveLength(0);
+
+    // 수락 이후: activeSecretPacts도 동일하게 당사자 외에는 보이지 않는다
+    view = await act(roomId, counterparty, { type: 'acceptSecretPact', actor: 'player-1' as PlayerId, proposer: 'player-0' as PlayerId });
+    expect(view.round.activeSecretPacts).toHaveLength(1);
+    const outsiderAfterAccept = await emitAck<{ view: GameState }>(outsider.socket, 'room:attach', { roomId, token: outsider.token });
+    expect(outsiderAfterAccept.view!.round.activeSecretPacts).toHaveLength(0);
+    expect(outsiderAfterAccept.view!.actionLog.some((e) => e.action === 'acceptSecretPact')).toBe(false);
+  });
 });

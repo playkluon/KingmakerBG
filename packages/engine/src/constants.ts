@@ -145,3 +145,6 @@ export const SCORE_CONDITIONAL_SUPPORT_SUCCESS = 1;
 export const SCORE_POLICY_PRESSURE_SUCCESS = 1;
 export const SCORE_VOTER_SUPPORT_WINNER = 1;
 export const SCORE_KINGMAKER_BONUS = 2;
+
+// ── §16-5 최종 점수: 공개 계약 이행 수 단독 1등 보너스 (부록 A-15) ──
+export const SCORE_CONTRACT_LEADER_BONUS = 2;

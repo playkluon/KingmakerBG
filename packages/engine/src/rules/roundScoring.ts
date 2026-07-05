@@ -18,10 +18,38 @@ import { computeVoterSupport } from './voters';
 import { computeVoteBreakdown } from './voting';
 import type { ReduceResult } from '../result';
 import type { CardCatalog } from '../types/cards';
-import type { PlayerId } from '../types/ids';
-import type { EffectDescriptor, GameState, PlayerState } from '../types/state';
+import type { EventId, PlayerId } from '../types/ids';
+import type { EffectDescriptor, GameState, PlayerState, SecretPact } from '../types/state';
 
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
+
+/** 부록 A-16: 제안자가 약속한 후보를 실제로 지지했는지 — majorBacker/coBacker이거나 조건부 지지를 실행했으면 이행으로 본다 */
+function isSecretPactHonored(state: GameState, pact: SecretPact): boolean {
+  const camp = state.round.camps[pact.promise.candidateId];
+  if (camp?.majorBacker === pact.proposer || camp?.coBacker === pact.proposer) return true;
+  return state.round.conditionalSupporters[pact.promise.candidateId]?.includes(pact.proposer) ?? false;
+}
+
+/**
+ * 부록 A-16: 비밀 pact 이행 여부를 판정해 배신 페널티(§12: rep −2, 유권자 이벤트 2장, 플래그)를 매긴다.
+ * 이행됐으면 조용히 넘어간다 — 성사 자체를 축하하는 보상은 브리프에 없다.
+ */
+function settleSecretPacts(state: GameState, effects: EffectDescriptor[]): { players: PlayerState[]; voterEventDeck: EventId[] } {
+  let players = state.players;
+  const deck = [...state.drawPiles.voterEventDeck];
+  for (const pact of state.round.activeSecretPacts) {
+    if (isSecretPactHonored(state, pact)) continue;
+    const drawn = [deck.shift(), deck.shift()].filter((id): id is EventId => id != null);
+    players = players.map((p) => {
+      if (p.id === pact.proposer) return { ...p, reputation: p.reputation - 2, betrayedSecretPact: true };
+      if (p.id === pact.counterparty) return { ...p, voterEventHand: [...p.voterEventHand, ...drawn] };
+      return p;
+    });
+    effects.push({ target: pact.proposer, field: 'betrayedSecretPact', delta: -2 });
+    effects.push({ target: pact.counterparty, field: 'voterEventHand', delta: drawn.length });
+  }
+  return { players, voterEventDeck: deck };
+}
 
 /** §19 scoreRound — scoring v1 전 항목을 정산하고 §10 영향력 마커를 누적한다 */
 export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): ReduceResult {
@@ -40,6 +68,9 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
     vpAwards.set(playerId, (vpAwards.get(playerId) ?? 0) + amount);
     effects.push({ target: playerId, field, delta: amount });
   };
+
+  // 부록 A-16: 비밀 pact 배신 판정을 먼저 정산한다 — VP·마커 반영은 이 결과 위에 이어 붙인다
+  const pactSettlement = settleSecretPacts(state, effects);
 
   // 당선/2위 순위 (§13 표 합계 기준 — 동점 처리까지 재현할 필요 없이 총합만 비교하면 된다)
   const ranked = [...state.round.candidatesRunning].sort((a, b) => (breakdown[b]?.total ?? 0) - (breakdown[a]?.total ?? 0));
@@ -108,7 +139,7 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
     }
   }
 
-  const players: PlayerState[] = state.players.map((p) => {
+  const players: PlayerState[] = pactSettlement.players.map((p) => {
     const gained = vpAwards.get(p.id) ?? 0;
     const groupGains = markerGains.get(p.id);
     const nextMarkers = { ...p.influenceMarkers };
@@ -138,6 +169,7 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
   const next: GameState = {
     ...appendLog(state, entry),
     players,
+    drawPiles: { ...state.drawPiles, voterEventDeck: pactSettlement.voterEventDeck },
     round: { ...state.round, vpAwardedThisRound: Object.fromEntries(vpAwards), markersAwardedThisRound },
     lastRoundResult: state.lastRoundResult ? { ...state.lastRoundResult, vpBreakdown } : state.lastRoundResult,
     phase: nextPhase,

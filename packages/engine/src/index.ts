@@ -33,6 +33,7 @@ export {
   POLL_ENABLED,
   SCORE_CO_BACKER_WIN,
   SCORE_CONDITIONAL_SUPPORT_SUCCESS,
+  SCORE_CONTRACT_LEADER_BONUS,
   SCORE_KINGMAKER_BONUS,
   SCORE_MAJOR_BACKER_WIN,
   SCORE_ORGANIZER_WIN,
@@ -82,7 +83,12 @@ export type {
   RoundHistoryEntry,
   RoundResultSummary,
   RoundState,
+  SecretPact,
+  SecretPactProposal,
+  SecretPactPromise,
+  UnificationContract,
   UnificationProposal,
+  UnificationTerm,
 } from './types/state';
 export type {
   AgendaCondition,

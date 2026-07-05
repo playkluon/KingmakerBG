@@ -7,9 +7,27 @@ import type { ReduceResult } from '../result';
 import type { CardCatalog } from '../types/cards';
 import type { PlayerAction } from '../types/actions';
 import type { CandidateId, PlayerId } from '../types/ids';
-import type { GameState, UnificationProposal } from '../types/state';
+import type { GameState, UnificationContract, UnificationProposal, UnificationTerm } from '../types/state';
 
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
+
+/** 부록 A-15: 공개 조건 계약 조건을 검증한다 — 제안 시점에 확정되므로 여기서 전부 걸러낸다 */
+function validateTerms(state: GameState, proposer: PlayerId, terms: UnificationTerm[]): string | null {
+  const player = state.players.find((p) => p.id === proposer)!;
+  let moneyPromised = 0;
+  for (const term of terms) {
+    if (term.kind === 'moneyTransfer') {
+      if (!Number.isInteger(term.amount) || term.amount <= 0) return '자금 이전 조건은 0보다 큰 정수여야 합니다';
+      moneyPromised += term.amount;
+    } else if (term.kind === 'victoryPointGrant') {
+      if (!Number.isInteger(term.amount) || term.amount <= 0) return 'VP 약속 조건은 0보다 큰 정수여야 합니다';
+    } else if (term.kind === 'policyConcession') {
+      if (!Number.isInteger(term.amount) || term.amount <= 0) return '정책 양보 조건은 0보다 큰 정수여야 합니다';
+    }
+  }
+  if (moneyPromised > player.money) return `약속한 자금(${moneyPromised})이 보유 자금(${player.money})보다 많습니다`;
+  return null;
+}
 
 /** 부록 A-12: 두 후보의 이전 비율을 계산한다. 직접 충돌이면 null(제안 불가) */
 export function computeTransferRatio(state: GameState, catalog: CardCatalog, leadId: CandidateId, withdrawId: CandidateId): number | null {
@@ -72,17 +90,22 @@ export function applyProposeUnification(
   if (ratio === null) {
     return fail('두 후보의 정책 방향이 직접 충돌해 단일화를 제안할 수 없습니다');
   }
+  const terms = action.terms ?? [];
+  const termsError = validateTerms(state, action.actor, terms);
+  if (termsError) return fail(termsError);
+
   const withdrawTotal = computeVoteBreakdown(state, catalog)[withdrawCandidateId]?.total ?? 0;
   const transferVotes = Math.floor(withdrawTotal * ratio);
 
-  const proposal: UnificationProposal = { proposer: action.actor, leadCandidateId, withdrawCandidateId, ratio, transferVotes };
+  const proposal: UnificationProposal = { proposer: action.actor, leadCandidateId, withdrawCandidateId, ratio, transferVotes, terms };
   const player = state.players.find((p) => p.id === action.actor)!;
+  const termsNote = terms.length > 0 ? `, 조건 ${terms.length}건 첨부(당선 시 자동 이행)` : '';
   const entry = createLogEntry(
     state,
     'unification',
     action.actor,
     'proposeUnification',
-    `${player.name}이(가) 단일화를 제안했습니다 (이전 비율 ${Math.round(ratio * 100)}%, 예상 이전 표 ${transferVotes})`,
+    `${player.name}이(가) 단일화를 제안했습니다 (이전 비율 ${Math.round(ratio * 100)}%, 예상 이전 표 ${transferVotes}${termsNote})`,
   );
   const next: GameState = { ...appendLog(state, entry), round: { ...state.round, pendingUnificationProposal: proposal } };
   return { ok: true, state: next, log: [entry] };
@@ -97,17 +120,24 @@ export function applyAcceptUnification(state: GameState, action: Extract<PlayerA
   }
 
   const player = state.players.find((p) => p.id === action.actor)!;
+  const termsNote = proposal.terms.length > 0 ? ` (조건 ${proposal.terms.length}건은 대표 후보 당선 시 자동 이행)` : '';
   const entry = createLogEntry(
     state,
     'unification',
     action.actor,
     'acceptUnification',
-    `${player.name}이(가) 단일화를 수락했습니다 — 후보가 사퇴하고 표 ${proposal.transferVotes}가 이전됩니다`,
+    `${player.name}이(가) 단일화를 수락했습니다 — 후보가 사퇴하고 표 ${proposal.transferVotes}가 이전됩니다${termsNote}`,
     [
       { target: proposal.withdrawCandidateId, field: 'withdrawn', after: 'withdrawn' },
       { target: proposal.leadCandidateId, field: 'unificationTransfer', delta: proposal.transferVotes },
     ],
   );
+
+  // 부록 A-15: 조건이 있으면 공개 계약으로 기록한다 — 이행 여부는 policyResolution이 당선 결과를 보고 확정한다
+  const contract: UnificationContract | null =
+    proposal.terms.length > 0
+      ? { proposer: proposal.proposer, beneficiary: action.actor, leadCandidateId: proposal.leadCandidateId, terms: proposal.terms, fulfilled: false }
+      : null;
 
   // 단일화는 라운드당 최대 1건(부록 A-12) — 성사 즉시 투표로 진행한다
   const next: GameState = {
@@ -121,6 +151,7 @@ export function applyAcceptUnification(state: GameState, action: Extract<PlayerA
         [proposal.leadCandidateId]: (state.round.unificationTransfers[proposal.leadCandidateId] ?? 0) + proposal.transferVotes,
       },
       pendingUnificationProposal: null,
+      unificationContract: contract,
     },
     phase: getNextPhase('unification', state.round.round, state.maxRounds),
   };

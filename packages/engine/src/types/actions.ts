@@ -1,6 +1,7 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // §19 시스템 액션(16종) + §20 플레이어 액션(17종)
 import type { CandidateId, EventId, PlayerId, PolicyDirection, PolicyTrackId, PromiseId, VoterId } from './ids';
+import type { SecretPactPromise, UnificationTerm } from './state';
 
 /** §8: 기본은 동시 비공개 입찰, 공개 순차는 튜토리얼/디버그 전용 */
 export type AuctionMode = 'simultaneousBlind' | 'sequentialOpen';
@@ -35,14 +36,25 @@ export type PlayerAction =
   | { type: 'fundraise'; actor: PlayerId }
   | { type: 'reportScandal'; actor: PlayerId; candidateId: CandidateId }
   | { type: 'conditionalSupport'; actor: PlayerId; candidateId: CandidateId }
-  | { type: 'proposeUnification'; actor: PlayerId; leadCandidateId: CandidateId; withdrawCandidateId: CandidateId }
+  | {
+      type: 'proposeUnification';
+      actor: PlayerId;
+      leadCandidateId: CandidateId;
+      withdrawCandidateId: CandidateId;
+      /** 부록 A-15 공개 조건 계약 — 생략하면 조건 없는 순수 단일화(§12 기본 범위) */
+      terms?: UnificationTerm[];
+    }
   | { type: 'acceptUnification'; actor: PlayerId }
   | { type: 'declineUnification'; actor: PlayerId }
   | { type: 'skipUnification'; actor: PlayerId }
   | { type: 'selectElectionPolicyMove'; actor: PlayerId; track: PolicyTrackId; direction: PolicyDirection }
   | { type: 'useEvent'; actor: PlayerId; eventId: EventId } // 효과는 7단계 활성화 전까지 거부 (부록 A-4)
   | { type: 'poll'; actor: PlayerId } // 비활성 플래그 (부록 A-4)
-  | { type: 'assignVoterChoice'; actor: PlayerId; voterId: VoterId; candidateId: CandidateId };
+  | { type: 'assignVoterChoice'; actor: PlayerId; voterId: VoterId; candidateId: CandidateId }
+  // §12 비밀 pact (부록 A-16) — campaignActions 중 무료·차례 무관, assignVoterChoice와 동일한 성격
+  | { type: 'proposeSecretPact'; actor: PlayerId; counterparty: PlayerId; promise: SecretPactPromise }
+  | { type: 'acceptSecretPact'; actor: PlayerId; proposer: PlayerId }
+  | { type: 'declineSecretPact'; actor: PlayerId; proposer: PlayerId };
 
 export type GameAction = SystemAction | PlayerAction;
 

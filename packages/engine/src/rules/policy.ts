@@ -5,8 +5,8 @@ import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import type { ReduceResult } from '../result';
 import type { CardCatalog } from '../types/cards';
-import type { PolicyDirection, PolicyTrackId } from '../types/ids';
-import type { EffectDescriptor, GameState } from '../types/state';
+import type { CandidateId, PolicyDirection, PolicyTrackId } from '../types/ids';
+import type { EffectDescriptor, GameState, PlayerState, UnificationContract } from '../types/state';
 
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
 
@@ -23,7 +23,42 @@ function move(
   return { ...tracks, [track]: after };
 }
 
-/** §19 resolvePolicy — 당선 공약 이동 → 당선 효과 → (단일화 양보, no-op) → 정책 압박 비교 */
+/**
+ * 부록 A-15: 공개 조건 계약 이행 — 대표 후보가 실제로 당선된 경우에만 조건이 자동 집행된다.
+ * 낙선했으면 계약은 그냥 무효가 된다(불이행 경로 자체가 없다 — §16-5 "이행 수"는 성사된 것만 센다).
+ */
+function settleUnificationContract(
+  contract: UnificationContract | null,
+  winner: CandidateId | null,
+  players: PlayerState[],
+  tracks: Record<PolicyTrackId, number>,
+  effects: EffectDescriptor[],
+): { players: PlayerState[]; tracks: Record<PolicyTrackId, number>; contract: UnificationContract | null } {
+  if (!contract || contract.leadCandidateId !== winner) return { players, tracks, contract };
+
+  let nextTracks = tracks;
+  let nextPlayers = players;
+  for (const term of contract.terms) {
+    if (term.kind === 'moneyTransfer') {
+      nextPlayers = nextPlayers.map((p) => {
+        if (p.id === contract.proposer) return { ...p, money: p.money - term.amount };
+        if (p.id === contract.beneficiary) return { ...p, money: p.money + term.amount };
+        return p;
+      });
+      effects.push({ target: contract.beneficiary, field: 'money', delta: term.amount });
+    } else if (term.kind === 'victoryPointGrant') {
+      nextPlayers = nextPlayers.map((p) => (p.id === contract.beneficiary ? { ...p, victoryPoints: p.victoryPoints + term.amount } : p));
+      effects.push({ target: contract.beneficiary, field: 'victoryPoints', delta: term.amount });
+    } else if (term.kind === 'policyConcession') {
+      nextTracks = move(nextTracks, effects, term.track, term.direction, term.amount);
+    }
+  }
+  nextPlayers = nextPlayers.map((p) => (p.id === contract.proposer ? { ...p, contractsFulfilled: p.contractsFulfilled + 1 } : p));
+
+  return { players: nextPlayers, tracks: nextTracks, contract: { ...contract, fulfilled: true } };
+}
+
+/** §19 resolvePolicy — 당선 공약 이동 → 당선 효과 → 공개 조건 계약 이행 → 정책 압박 비교 */
 export function applyResolvePolicyAction(state: GameState, catalog: CardCatalog): ReduceResult {
   if (state.phase !== 'policyResolution') {
     return fail(`지금(${state.phase})은 'resolvePolicy'를 할 수 없습니다`);
@@ -50,8 +85,10 @@ export function applyResolvePolicyAction(state: GameState, catalog: CardCatalog)
     }
   }
 
-  // ③공개 단일화 조건의 정책 양보 — Skill 12(고급 규칙)까지 no-op 훅
-  // (공개 계약 자체가 아직 없으므로 여기서 할 일이 없다)
+  // ③공개 단일화 조건의 정책 양보 등 — 대표 후보가 실제로 당선됐을 때만 자동 이행된다 (부록 A-15)
+  const settled = settleUnificationContract(state.round.unificationContract, winner, state.players, tracks, effects);
+  tracks = settled.tracks;
+  let players = settled.players;
 
   // ④정책 압박 비교 — 차이가 큰 트랙부터 최대 2개만, 동률은 트랙 정의 순서(POLICY_TRACKS)로 결정적
   const diffs = POLICY_TRACKS.map((track) => {
@@ -71,7 +108,8 @@ export function applyResolvePolicyAction(state: GameState, catalog: CardCatalog)
   const next: GameState = {
     ...appendLog(state, entry),
     policyTracks: tracks,
-    round: { ...state.round, pressureAppliedTracks: appliedTracks },
+    players,
+    round: { ...state.round, pressureAppliedTracks: appliedTracks, unificationContract: settled.contract },
     phase: nextPhase,
   };
   return { ok: true, state: next, log: [entry] };

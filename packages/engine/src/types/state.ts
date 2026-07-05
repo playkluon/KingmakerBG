@@ -33,6 +33,12 @@ export interface PlayerState {
   influenceMarkers: Partial<Record<VoterGroupId, number>>;
   /** §5 라운드 수입으로 받는 손패. 사용(useEvent)은 7단계까지 거부된다 (부록 A-4) */
   candidateEventHand: EventId[];
+  /** §16-5 "공개 계약 이행 수" 누계 — 게임 전체에 걸쳐 누적되며 라운드로 리셋되지 않는다 */
+  contractsFulfilled: number;
+  /** §12 비밀 pact 배신 피해자가 받는 손패 (부록 A-16) — candidateEventHand와 별도로 관리 */
+  voterEventHand: EventId[];
+  /** §12 "betrayed-secret-pact" 플래그 — 게임 중 한 번이라도 비밀 pact를 배신하면 true로 고정된다 */
+  betrayedSecretPact: boolean;
 }
 
 /** 플레이어 1명의 경매 입찰 상태 (§8) */
@@ -56,6 +62,12 @@ export interface CampState {
   totalBacking: number;
 }
 
+/** §12 후속 규칙 "공개 조건 계약" — 대표 후보가 당선되면 제안자가 자동으로 이행하는 조건 (부록 A-15) */
+export type UnificationTerm =
+  | { kind: 'moneyTransfer'; amount: number }
+  | { kind: 'victoryPointGrant'; amount: number }
+  | { kind: 'policyConcession'; track: PolicyTrackId; direction: PolicyDirection; amount: number };
+
 /** 단일화 제안 1건 (§12) — 시스템 전체에 최대 1건만 대기할 수 있다 */
 export interface UnificationProposal {
   proposer: PlayerId;
@@ -65,6 +77,43 @@ export interface UnificationProposal {
   ratio: number;
   /** 제안 시점 사퇴 후보의 표 × ratio, 내림 */
   transferVotes: number;
+  /** 공개 조건 계약 조건 — 비어 있으면 순수 단일화(§12 기본 범위)와 동일하다 */
+  terms: UnificationTerm[];
+}
+
+/** 수락된 단일화의 공개 조건 계약 (§12 후속 규칙, §16-5) — policyResolution에서 이행 여부가 확정된다 */
+export interface UnificationContract {
+  proposer: PlayerId;
+  /** 사퇴 후보의 majorBacker — 계약 수혜자 */
+  beneficiary: PlayerId;
+  leadCandidateId: CandidateId;
+  terms: UnificationTerm[];
+  /** leadCandidateId가 실제로 당선되어 조건이 이행됐는지 — 최종 점수 §16-5 "이행 수" 집계 기준 */
+  fulfilled: boolean;
+}
+
+/**
+ * §12 "비밀 pact" (부록 A-16) — 당사자 둘만 아는 약속. 브리프가 약속의 구체적 내용을 정의하지 않아,
+ * 라운드 종료 시점에 실제로 확인 가능한 유일한 형태인 "이 후보를 지지하겠다"로 좁혔다.
+ */
+export type SecretPactPromise = { kind: 'supportCandidate'; candidateId: CandidateId };
+
+/**
+ * 대기 중인 비밀 pact 제안 — projectView가 당사자 외 전원에게서 제거한다.
+ * (proposer, counterparty) 쌍이 accept/decline 액션의 식별 키다 — 별도 id 생성기가 필요 없다(결정성 유지, 부록 A-5).
+ */
+export interface SecretPactProposal {
+  proposer: PlayerId;
+  counterparty: PlayerId;
+  /** 제안자가 지키겠다고 약속하는 내용 */
+  promise: SecretPactPromise;
+}
+
+/** 수락된 비밀 pact — roundScoring이 이행 여부를 판정해 배신 페널티를 매긴다 */
+export interface SecretPact {
+  proposer: PlayerId;
+  counterparty: PlayerId;
+  promise: SecretPactPromise;
 }
 
 /** 당선 효과(§14) 확정 결과. policyResolution이 이 값을 그대로 적용한다 */
@@ -114,6 +163,10 @@ export interface RoundState {
   campaignActiveIndex: number;
   /** 플레이어별 이번 라운드 사용한 캠페인 액션 수 (최대 2, assignVoterChoice는 포함 안 됨) */
   campaignActionsUsed: Partial<Record<PlayerId, number>>;
+  /** §12 비밀 pact 제안 대기 목록 — assignVoterChoice처럼 무료·차례 무관 (부록 A-16) */
+  pendingSecretPactProposals: SecretPactProposal[];
+  /** 수락되어 이번 라운드 판정 대상이 된 비밀 pact 목록 */
+  activeSecretPacts: SecretPact[];
   /** §12 단일화로 사퇴한 후보 (라운드당 최대 1명 — 부록 A-12) */
   withdrawnCandidates: CandidateId[];
   /** 사퇴 후보 -> 대표 후보로 이전된 표 (대표 후보 id가 키) */
@@ -122,6 +175,8 @@ export interface RoundState {
   pendingUnificationProposal: UnificationProposal | null;
   /** majorBacker별로 "이번 라운드 단일화 관련 행동을 더 하지 않음" 표시 (스킵 또는 제안 거절됨) */
   unificationDone: Partial<Record<PlayerId, boolean>>;
+  /** 수락된 단일화의 공개 조건 계약 (라운드당 최대 1건 — 부록 A-12와 동일한 제약) */
+  unificationContract: UnificationContract | null;
   /** §13 투표 정산 후 확정되는 당선 후보 */
   winnerCandidateId: CandidateId | null;
   /** §14 당선 효과 선택 결과. policyResolution이 소비한다 */

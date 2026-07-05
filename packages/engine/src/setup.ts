@@ -67,6 +67,9 @@ export function setupGame(options: SetupOptions): GameState {
     secretAgendaId: assignedAgendas[seat] ?? null,
     influenceMarkers: {},
     candidateEventHand: [],
+    contractsFulfilled: 0,
+    voterEventHand: [],
+    betrayedSecretPact: false,
   }));
 
   return {
