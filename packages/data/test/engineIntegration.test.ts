@@ -1,7 +1,7 @@
 // 기반 스킬: skills/card-data/SKILL.md
 // DEV_PLAN.md M2 완료 조건: "Phase 1의 setup.ts가 실데이터로 교체되어도 결정성 테스트 유지"
 import { reduce, setupGame } from '@kingmakers/engine';
-import type { CardCatalog, DrawPiles, GameAction } from '@kingmakers/engine';
+import type { CardCatalog, DrawPiles, GameAction, PlayerId } from '@kingmakers/engine';
 import { describe, expect, it } from 'vitest';
 import { AGENDAS } from '../src/agendas';
 import { buildCardCatalog } from '../src/catalog';
@@ -137,5 +137,80 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
     }
 
     expect(state.phase).toBe('voterReveal');
+  });
+
+  it('실카드 데이터로 4인 5라운드 풀게임이 끝까지 완주된다 (M5 관문, 부록 A-14 실카드 검증)', () => {
+    // 실카드 후보 21장/공약 30장은 5라운드 기준 딱 맞게 부족하도록 설계된 수량이라(§4),
+    // 부록 A-14 카드 반환이 실카드로도 정확히 동작해야만 이 테스트가 끝까지 통과한다.
+    let state = setupGame({ seed: 2026, players, decks: realDecks() });
+    const step = (action: GameAction) => {
+      const result = reduce(state, action, typedCatalog);
+      if (!result.ok) throw new Error(`R${state.round.round} ${action.type} 실패: ${result.reason}`);
+      state = result.state;
+    };
+
+    step({ type: 'startGame' });
+    step({ type: 'runUntilPlayerAction' });
+
+    while (state.phase !== 'gameEnd') {
+      expect(state.phase).toBe('auctionBidding');
+      expect(state.round.candidatesRevealed).toHaveLength(5);
+
+      const [c0, c1, c2, c3] = state.round.candidatesRevealed;
+      step({ type: 'placeBid', actor: 'player-0', allocations: { [c0!]: 6 } });
+      step({ type: 'placeBid', actor: 'player-1', allocations: { [c1!]: 4 } });
+      step({ type: 'placeBid', actor: 'player-2', allocations: { [c2!]: 3 } });
+      step({ type: 'placeBid', actor: 'player-3', allocations: { [c3!]: 2 } });
+      for (const actor of ['player-0', 'player-1', 'player-2', 'player-3'] as const) {
+        step({ type: 'confirmAuctionBids', actor });
+      }
+      step({ type: 'runUntilPlayerAction' });
+      expect(state.phase).toBe('promiseSelection');
+
+      for (const candidateId of state.round.candidatesRunning) {
+        expect(state.round.camps[candidateId]!.promiseOptions).toHaveLength(3);
+      }
+      for (const candidateId of [...state.round.candidatesRunning]) {
+        if (state.phase !== 'promiseSelection') break;
+        const camp = state.round.camps[candidateId]!;
+        if (!camp.majorBacker) continue;
+        step({ type: 'selectPromise', actor: camp.majorBacker, candidateId, promiseId: camp.promiseOptions[0]! });
+      }
+      if (state.phase === 'promiseSelection') step({ type: 'autoSelectPromises' });
+      step({ type: 'runUntilPlayerAction' });
+      expect(state.phase).toBe('campaignActions');
+
+      const supportTarget = state.round.candidatesRunning[0]!;
+      for (let i = 0; i < 8; i += 1) {
+        const actor = state.round.campaignTurnOrder[state.round.campaignActiveIndex]!;
+        step({ type: 'conditionalSupport', actor, candidateId: supportTarget });
+      }
+      expect(state.phase).toBe('unification');
+
+      const majorBackers = new Set(
+        state.round.candidatesRunning.map((id) => state.round.camps[id]!.majorBacker).filter((id): id is PlayerId => id != null),
+      );
+      for (const actor of majorBackers) {
+        step({ type: 'skipUnification', actor });
+      }
+
+      step({ type: 'runUntilPlayerAction' });
+      // 선택형 당선 효과(choose/flex)는 실카드에 실제로 존재하므로 여기서만 멈출 수 있다
+      if (state.phase === 'electionEffectSelection') {
+        const winner = state.round.winnerCandidateId!;
+        const card = CANDIDATES.find((c) => c.id === winner)!;
+        const backer = state.round.camps[winner]!.majorBacker!;
+        const choice =
+          card.electionEffect.kind === 'choosePolicyMove'
+            ? { track: card.electionEffect.options[0]!.track, direction: card.electionEffect.options[0]!.direction }
+            : { track: 'economy' as const, direction: 1 as const };
+        step({ type: 'selectElectionPolicyMove', actor: backer, ...choice });
+      }
+    }
+
+    expect(state.round.round).toBe(5);
+    expect(state.roundHistory).toHaveLength(5);
+    expect(state.finalResult).not.toBeNull();
+    expect(state.finalResult!.entries).toHaveLength(4);
   });
 });

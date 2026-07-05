@@ -20,6 +20,7 @@ import { applyResolveVotingAction } from './rules/voting';
 import type { ReduceResult } from './result';
 import type { CardCatalog } from './types/cards';
 import type { AuctionMode, SystemAction } from './types/actions';
+import type { CandidateId, PromiseId } from './types/ids';
 import type { ActionLogEntry, EffectDescriptor, GameState, RoundHistoryEntry } from './types/state';
 
 const ok = (state: GameState, entry: ActionLogEntry): ReduceResult => ({ ok: true, state, log: [entry] });
@@ -193,10 +194,26 @@ function applyRevealCandidates(state: GameState): ReduceResult {
 }
 
 /**
+ * 부록 A-14: 당선되지 않은 후보/선택되지 않은 공약을 각 덱 맨 아래로 되돌린다.
+ * 라운드당 영구 소모를 후보 1장(당선자)·공약 3장(출마 후보 수만큼)으로 묶어 두어
+ * 인원수·라운드 수와 무관하게 21장/30장 안에서 항상 충분하게 만든다.
+ * 추가 셔플 없이 결정된 순서 그대로 돌려보내 RNG 상태를 소비하지 않는다(결정성 유지).
+ */
+function recycleUnusedCards(round: GameState['round']): { candidates: CandidateId[]; promises: PromiseId[] } {
+  const candidates = round.candidatesRevealed.filter((id) => id !== round.winnerCandidateId);
+  const promises = round.candidatesRunning.flatMap((id) => {
+    const camp = round.camps[id];
+    if (!camp) return [];
+    return camp.promiseOptions.filter((promiseId) => promiseId !== camp.promiseId);
+  });
+  return { candidates, promises };
+}
+
+/**
  * cleanup -> (income | gameEnd).
  * ① RoundHistoryEntry 영구 기록 (§17 비밀 의제 평가의 유일한 근거 데이터 — skills/scoring)
  * ② 마지막 라운드면 §16 최종 점수를 계산해 finalResult에 저장
- * ③ 아니면 라운드 번호 증가 + RoundState 리셋
+ * ③ 아니면 라운드 번호 증가 + RoundState 리셋 + 부록 A-14 카드 반환
  */
 function applyNextRound(state: GameState, catalog: CardCatalog): ReduceResult {
   const phaseError = checkExpectedPhase(state, 'nextRound');
@@ -223,11 +240,18 @@ function applyNextRound(state: GameState, catalog: CardCatalog): ReduceResult {
     isLastRound ? '게임이 종료되었습니다 — 최종 점수를 공개합니다' : `${nextRoundNumber}라운드를 시작합니다`,
   );
 
+  const { candidates: returningCandidates, promises: returningPromises } = recycleUnusedCards(state.round);
+
   let next: GameState = {
     ...appendLog(state, entry),
     phase: nextPhase,
     roundHistory: [...state.roundHistory, historyEntry],
     round: isLastRound ? state.round : createInitialRoundState(nextRoundNumber),
+    drawPiles: {
+      ...state.drawPiles,
+      candidateDeck: [...state.drawPiles.candidateDeck, ...returningCandidates],
+      promiseDeck: [...state.drawPiles.promiseDeck, ...returningPromises],
+    },
   };
 
   if (isLastRound) {

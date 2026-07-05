@@ -207,6 +207,14 @@
 }
 
 /* ── 최종 결과 ── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.finalSummary {
+  margin-top: 10px;
+}
+
 .finalTable {
   width: 100%;
   border-collapse: collapse;

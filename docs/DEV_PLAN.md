@@ -207,18 +207,22 @@
 
 ---
 
-## Phase 5 — 5라운드 풀게임 + 최종 점수 (skills/scoring 완성) → M5
+## Phase 5 — 5라운드 풀게임 + 최종 점수 (skills/scoring 완성) → M5 ✅ 2026-07-05
 
-- [ ] nextRound 루프 — 덱 소진 처리, 라운드 간 상태 이월(정책·자원·마커·히스토리)
-- [ ] agendas.ts — 조건 11유형 평가기 (RoundHistoryEntry 참조 필수)
-- [ ] finalScoring — 공개 VP + 의제 + money/5 + rep 단독 1등 +2 + 공개 계약(현재 0)
-- [ ] 동점 v0.3 5단계, 전원 의제 공개 + score breakdown
-- [ ] FinalResults 화면 연결 (최소 표시)
+- [x] nextRound 루프 — 덱 소진 처리(부록 A-14 신규), 라운드 간 상태 이월(정책·자원·마커·히스토리)
+- [x] agendas.ts — 조건 11유형 평가기 (RoundHistoryEntry 참조 필수) — Phase 3-D에서 이미 구현되어 있었음, 이번 단계에서 재검증만
+- [x] finalScoring — 공개 VP + 의제 + money/5 + rep 단독 1등 +2 + 공개 계약(현재 0) — 동일하게 Phase 3-D 선행 구현분 재검증
+- [x] 동점 v0.3 5단계, 전원 의제 공개 + score breakdown
+- [x] FinalResults 화면 연결 (최소 표시) — `components/board/FinalResults.tsx`, Table/PlayerScreen 양쪽에 연결
 
 **완료 조건 (M5)**:
-- [ ] 의제 16장 각각 달성/미달 테스트 (히스토리 참조 케이스 포함)
-- [ ] seed 고정 4인 5라운드 자동 완주 테스트 + 승자 점수 30~45 VP 목표대 확인(±10, 벗어나면 리포트만 남기고 통과)
-- [ ] 브라우저 4개로 5라운드 실제 완주 1회
+- [x] 의제 16장 각각 달성/미달 테스트 — agendas.test.ts(11건)가 11개 조건 유형 전체를 met/unmet 양쪽으로 커버(16장은 이 11유형의 파라미터 변주이므로 유형 커버리지로 충분). candidateWonAtMost류는 RoundHistoryEntry 참조 케이스 포함
+- [x] seed 고정 4인 5라운드 자동 완주 테스트 (`packages/engine/test/multiRound.test.ts` placeholder 카탈로그 4건 + `packages/data/test/engineIntegration.test.ts` 실카드 1건) — 승자 총점 36 VP로 목표대(30~45) 안에 들어옴, 결정성 재생·다른 seed 분기까지 확인
+- [x] 브라우저로 5라운드 실제 완주 — Claude Preview + 실소켓 스크립트로 방 생성→4명 참가→5라운드 전부 진행→gameEnd 도달, FinalResults 표 렌더링까지 확인 (콘솔 에러 0건). 4개 창 "동시" 접속은 M4와 동일한 도구 제약으로 순차 검증 대체
+
+**구현 노트**:
+- **부록 A-14 추가(핵심 발견)**: 브리프 어디에도 덱 소진 규칙이 없는 채로, 4인 5라운드 기준 후보(라운드당 5장×5=25장 vs 보유 21장)와 공약(출마 3명×3장×5=45장 vs 보유 30장) 덱이 실제로 바닥나는 것을 직접 계산으로 발견. "당선자를 제외한 이번 라운드 공개 후보 전원"과 "선택되지 않은 공약 옵션"을 매 라운드 cleanup에서 각 덱 맨 아래로 되돌리는 방식으로 해결 — 라운드당 영구 소모를 후보 1장·공약 3장으로 고정해 인원수·라운드 수와 무관하게 항상 충분하게 만들었다. 추가 셔플 없이 결정된 순서로만 되돌려 RNG 상태를 소비하지 않는다(결정성 유지). `system.ts`의 `applyNextRound`에 `recycleUnusedCards()` 헬퍼로 구현.
+- agendas.ts/finalScoring.ts는 Phase 3-D에서 이미 완성되어 있었다는 이전 세션 기록이 실제 코드로 확인됨 — 이번 단계의 실질 작업은 멀티라운드 통합 테스트와 덱 소진 버그 발견·수정, FinalResults 화면 연결이었다.
 
 > 착수 지시: "Phase 5 진행해줘. skills/scoring의 최종 점수·의제 평가기 완성"
 

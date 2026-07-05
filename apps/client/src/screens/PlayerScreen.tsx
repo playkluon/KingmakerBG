@@ -5,6 +5,7 @@ import { navigate } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
 import { ActionLog } from '../components/board/ActionLog';
 import { CandidateBoard } from '../components/board/CandidateBoard';
+import { FinalResults } from '../components/board/FinalResults';
 import { PhaseHeader } from '../components/board/PhaseHeader';
 import { PlayerPanels } from '../components/board/PlayerPanels';
 import { PolicyTracks } from '../components/board/PolicyTracks';
@@ -67,6 +68,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
     <main className={styles.page}>
       <div className={styles.wide}>
         <PhaseHeader state={view} />
+        <FinalResults state={view} />
         <TodoBanner state={view} myPlayerId={myPlayerId} />
         <MyResources state={view} myPlayerId={myPlayerId} />
         <SecretAgenda state={view} myPlayerId={myPlayerId} />
