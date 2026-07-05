@@ -83,6 +83,7 @@ export function setupGame(options: SetupOptions): GameState {
     actionLog: [],
     roundHistory: [],
     lastRoundResult: null,
+    finalResult: null,
     nextLogSeq: 1,
   };
 }

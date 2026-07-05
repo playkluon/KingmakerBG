@@ -116,18 +116,25 @@ function relationOf(voterCard: VoterCard, candidateTag: string | undefined): 1 |
   return 0;
 }
 
+/** 유권자 카드 1장이 이번 라운드 실제로 행사한 표 (§10, §13, §15가 공유하는 기본 단위) */
+export interface VoterSupport {
+  candidateId: CandidateId;
+  /** 최종 기여 표 수 (0이면 사실상 기권과 동일하게 취급한다) */
+  amount: number;
+  /** 이 유권자를 단독으로 통제하는 플레이어 (§10, §15 채점 대상) */
+  controller: PlayerId | null;
+  group: string;
+}
+
 /**
- * §10 자동 투표 집계.
+ * §10 자동 투표 집계 — 유권자 카드별 결과.
  * 배치된 유권자: 배치된 후보의 공약 태그와 내 선호/비선호/충돌 태그 관계에 따라 표가 갈린다
  * (선호 +1 / 중립 0 / 싫어함 -1 / 직접 충돌 -2를 voteWeight에 곱한 값, 0 미만 불가).
- * 미배치 유권자: 선호 태그가 일치하는 출마 후보를 찾아 전액 지지한다. 없으면 기권한다.
- * 순수 함수 — Skill 6(voting)이 최종 표 합산 시 이 결과를 다른 표 출처와 더한다.
+ * 미배치 유권자: 선호 태그가 일치하는 출마 후보를 찾아 전액 지지한다. 없으면 기권(결과에서 제외).
+ * 순수 함수 — voting.ts(§13 집계)와 roundScoring.ts(§10 마커, §15 지지 VP)가 공유한다.
  */
-export function computeVoterVotes(state: GameState, catalog: CardCatalog): Partial<Record<CandidateId, number>> {
-  const votes: Partial<Record<CandidateId, number>> = {};
-  const addVote = (candidateId: CandidateId, amount: number) => {
-    votes[candidateId] = (votes[candidateId] ?? 0) + amount;
-  };
+export function computeVoterSupport(state: GameState, catalog: CardCatalog): Partial<Record<VoterId, VoterSupport>> {
+  const support: Partial<Record<VoterId, VoterSupport>> = {};
 
   const promiseTagByCandidate = new Map<CandidateId, string | undefined>();
   for (const candidateId of state.round.candidatesRunning) {
@@ -138,11 +145,13 @@ export function computeVoterVotes(state: GameState, catalog: CardCatalog): Parti
   for (const voterId of state.round.votersRevealed) {
     const voterCard = catalog.voters[voterId];
     if (!voterCard) continue;
+    const controller = getVoterController(state.round.voterInfluence, voterId);
 
     const assigned = state.round.voterAssignments[voterId];
     if (assigned) {
       const relation = relationOf(voterCard, promiseTagByCandidate.get(assigned));
-      addVote(assigned, Math.max(0, voterCard.voteWeight * relation));
+      const amount = Math.max(0, voterCard.voteWeight * relation);
+      if (amount > 0) support[voterId] = { candidateId: assigned, amount, controller, group: voterCard.group };
       continue;
     }
 
@@ -150,8 +159,18 @@ export function computeVoterVotes(state: GameState, catalog: CardCatalog): Parti
     const matched = state.round.candidatesRunning.find(
       (candidateId) => promiseTagByCandidate.get(candidateId) === voterCard.preferredTag,
     );
-    if (matched) addVote(matched, voterCard.voteWeight);
+    if (matched) support[voterId] = { candidateId: matched, amount: voterCard.voteWeight, controller, group: voterCard.group };
   }
 
+  return support;
+}
+
+/** computeVoterSupport를 후보별로 합산한 값 — voting.ts의 §13 표 집계가 사용한다 */
+export function computeVoterVotes(state: GameState, catalog: CardCatalog): Partial<Record<CandidateId, number>> {
+  const votes: Partial<Record<CandidateId, number>> = {};
+  for (const entry of Object.values(computeVoterSupport(state, catalog))) {
+    if (!entry) continue;
+    votes[entry.candidateId] = (votes[entry.candidateId] ?? 0) + entry.amount;
+  }
   return votes;
 }

@@ -3,7 +3,7 @@
 import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import { resolveElectionEffectEntry } from './electionEffects';
-import { computeVoterVotes } from './voters';
+import { computeVoterSupport, computeVoterVotes } from './voters';
 import type { ReduceResult } from '../result';
 import type { CardCatalog } from '../types/cards';
 import type { CandidateId } from '../types/ids';
@@ -50,22 +50,11 @@ export function computeVoteBreakdown(state: GameState, catalog: CardCatalog): Pa
   return breakdown;
 }
 
-/** 후보가 표를 받은 유권자 그룹의 개수 (§13 동점 처리 ③) */
+/** 후보가 표를 받은 유권자 그룹의 개수 (§13 동점 처리 ③) — computeVoterSupport와 같은 기준을 공유한다 */
 function countContributingGroups(state: GameState, catalog: CardCatalog, candidateId: CandidateId): number {
   const groups = new Set<string>();
-  for (const voterId of state.round.votersRevealed) {
-    const voterCard = catalog.voters[voterId];
-    if (!voterCard) continue;
-    const assignedTo = state.round.voterAssignments[voterId];
-    const target = assignedTo ?? undefined;
-    if (target === candidateId) {
-      groups.add(voterCard.group);
-    } else if (!assignedTo) {
-      // 미배치 유권자가 선호 매칭으로 이 후보를 지지했는지는 computeVoterVotes와 동일 기준으로 재확인한다
-      const promiseId = state.round.camps[candidateId]?.promiseId;
-      const tag = promiseId ? catalog.promises[promiseId]?.reactionTag : undefined;
-      if (tag && tag === voterCard.preferredTag) groups.add(voterCard.group);
-    }
+  for (const entry of Object.values(computeVoterSupport(state, catalog))) {
+    if (entry && entry.candidateId === candidateId) groups.add(entry.group);
   }
   return groups.size;
 }

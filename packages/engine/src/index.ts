@@ -31,6 +31,15 @@ export {
   POLICY_TRACK_START,
   POLICY_TRACKS,
   POLL_ENABLED,
+  SCORE_CO_BACKER_WIN,
+  SCORE_CONDITIONAL_SUPPORT_SUCCESS,
+  SCORE_KINGMAKER_BONUS,
+  SCORE_MAJOR_BACKER_WIN,
+  SCORE_ORGANIZER_WIN,
+  SCORE_POLICY_PRESSURE_SUCCESS,
+  SCORE_PROMISE_BONUS_MAJOR_BACKER,
+  SCORE_RUNNER_UP_MAJOR_BACKER,
+  SCORE_VOTER_SUPPORT_WINNER,
   STARTING_MONEY,
   STARTING_ORGANIZATION,
   STARTING_REPUTATION,
@@ -65,6 +74,8 @@ export type {
   DrawPiles,
   EffectDescriptor,
   ElectionEffectResolution,
+  FinalResultSummary,
+  FinalScoreEntry,
   GameState,
   PlayerState,
   PolicyPressure,
@@ -89,10 +100,13 @@ export type {
 } from './types/cards';
 
 // ── 규칙 함수 (서버·시뮬레이션·후속 스킬 재사용용) ─────────────
-export { computeVoterVotes, getVoterController } from './rules/voters';
+export { computeVoterSupport, computeVoterVotes, getVoterController } from './rules/voters';
+export type { VoterSupport } from './rules/voters';
 export { computeTransferRatio } from './rules/unification';
 export { computeVoteBreakdown } from './rules/voting';
 export type { VoteBreakdown } from './rules/voting';
+export { evaluateAgendaCondition } from './rules/agendas';
+export { computeFinalResult } from './rules/finalScoring';
 
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
 export { getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';

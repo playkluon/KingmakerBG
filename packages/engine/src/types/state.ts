@@ -104,6 +104,10 @@ export interface RoundState {
   conditionalSupporters: Partial<Record<CandidateId, PlayerId[]>>;
   /** §6 정책 압박 누적 — 압박 액션과 공약 backerPressureToken 효과가 함께 쌓는다 */
   policyPressure: Record<PolicyTrackId, PolicyPressure>;
+  /** 트랙·방향별 압박을 실행한 플레이어 목록 (§15 "내 정책 압박이 실제 반영됨" 채점용) */
+  pressureContributors: Partial<Record<PolicyTrackId, Partial<Record<PolicyDirection, PlayerId[]>>>>;
+  /** resolvePolicy가 실제로 반영한 (최대 2개) 트랙·방향 — roundScoring이 압박 성공 여부를 판단할 때 재사용한다 */
+  pressureAppliedTracks: Array<{ track: PolicyTrackId; direction: PolicyDirection }>;
   /** §11 캠페인 액션 라운드로빈 순서 (좌석 순, campaignActions 진입 시 고정) */
   campaignTurnOrder: PlayerId[];
   /** campaignTurnOrder 안에서 현재 차례의 인덱스 */
@@ -122,6 +126,10 @@ export interface RoundState {
   winnerCandidateId: CandidateId | null;
   /** §14 당선 효과 선택 결과. policyResolution이 소비한다 */
   electionEffectResolution: ElectionEffectResolution | null;
+  /** roundScoring이 채우는 이번 라운드 획득 VP 스냅샷 — cleanup이 RoundHistoryEntry를 만들 때 소비한다 */
+  vpAwardedThisRound: Partial<Record<PlayerId, number>>;
+  /** roundScoring이 채우는 이번 라운드 획득 영향력 마커 스냅샷 — cleanup이 RoundHistoryEntry를 만들 때 소비한다 */
+  markersAwardedThisRound: Partial<Record<PlayerId, Partial<Record<VoterGroupId, number>>>>;
 }
 
 /** 셔플된 카드 풀의 남은 뭉치. Phase 1은 실제 카드 데이터 없이 placeholder ID로 채운다 */
@@ -167,6 +175,8 @@ export interface ActionLogEntry {
 export interface RoundHistoryEntry {
   round: number;
   winnerCandidateId: CandidateId | null;
+  /** §13 최종 표 (UI 라운드 히스토리 표시용) */
+  candidateVotes: Partial<Record<CandidateId, number>>;
   policyTracksAfter: Record<PolicyTrackId, number>;
   vpAwarded: Partial<Record<PlayerId, number>>;
   influenceMarkersAwarded: Partial<Record<PlayerId, Partial<Record<VoterGroupId, number>>>>;
@@ -181,6 +191,33 @@ export interface RoundResultSummary {
   candidateVotes: Partial<Record<CandidateId, number>>;
   winnerCandidateId: CandidateId | null;
   vpBreakdown: Partial<Record<PlayerId, { total: number; reasons: EffectDescriptor[] }>>;
+}
+
+/** §16 최종 점수 1인분 — 항목 분해(score breakdown) 포함 */
+export interface FinalScoreEntry {
+  playerId: PlayerId;
+  /** 라운드 중 공개 VP 누계 (§16-1) */
+  baseVp: number;
+  /** 전원 공개되는 비밀 의제 (§16-2) — 게임 종료 시에만 노출 */
+  agendaId: AgendaId | null;
+  agendaMet: boolean;
+  agendaVp: number;
+  /** 남은 money 5마다 +1 (§16-3) */
+  moneyBonusVp: number;
+  /** reputation 단독 1등 +2 (§16-4) */
+  reputationBonusVp: number;
+  /** 공개 계약 이행 수 단독 1등 +2 (§16-5) — Skill 12 전까지 항상 0 */
+  contractBonusVp: number;
+  total: number;
+  /** §16 동점 처리(v0.3) 반영 후 최종 순위 — 모든 판정 기준이 같으면 공동 순위 */
+  rank: number;
+}
+
+/** 게임 종료 시 확정되는 최종 결과 (§16) — projectView 마스킹 없이 전원 공개 */
+export interface FinalResultSummary {
+  entries: FinalScoreEntry[];
+  /** 공동 승리 가능 (§16 동점 처리 5단계) */
+  winners: PlayerId[];
 }
 
 /** 게임 전체 상태 — schemaVersion 0.2 (GAME_SPEC.md 상단 고정값) */
@@ -203,6 +240,8 @@ export interface GameState {
   actionLog: ActionLogEntry[];
   roundHistory: RoundHistoryEntry[];
   lastRoundResult: RoundResultSummary | null;
+  /** §16 최종 결과 — gameEnd 진입 시 채워지고 그 전에는 null */
+  finalResult: FinalResultSummary | null;
   /** 다음에 발급할 ActionLogEntry.seq */
   nextLogSeq: number;
 }

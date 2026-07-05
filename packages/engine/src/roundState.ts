@@ -26,6 +26,8 @@ export function createInitialRoundState(round: number): RoundState {
     campaignVotes: {},
     conditionalSupporters: {},
     policyPressure: createEmptyPolicyPressure(),
+    pressureContributors: {},
+    pressureAppliedTracks: [],
     campaignTurnOrder: [],
     campaignActiveIndex: 0,
     campaignActionsUsed: {},
@@ -35,5 +37,7 @@ export function createInitialRoundState(round: number): RoundState {
     unificationDone: {},
     winnerCandidateId: null,
     electionEffectResolution: null,
+    vpAwardedThisRound: {},
+    markersAwardedThisRound: {},
   };
 }

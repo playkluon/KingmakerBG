@@ -147,15 +147,23 @@
 - 당선 효과 확정(electionEffectSelection)과 실제 적용(policyResolution)을 분리 — "무엇으로 결정됐는지"(electionEffectResolution)와 "그걸 트랙에 반영하는 것"을 다른 phase로 나눠, promiseSelection/campaignActions에서 쓴 "결정 vs 적용" 패턴을 그대로 재사용했다.
 - 3-C까지 누적 104건(엔진 79 + 데이터 25) 전체 통과, `pnpm typecheck` 통과.
 
-### 3-D. 라운드 점수 (skills/scoring 라운드분)
-- [ ] scoring v1 전 항목 + VP 사유 effects 기록
-- [ ] 통제 유권자 VP 상한(4-5인 1 / 6-7인 2), 킹메이커 +2
-- [ ] cleanup에서 RoundHistoryEntry 기록 + 영향력 마커 누적
+### 3-D. 라운드 점수 (skills/scoring 라운드분) ✅ 2026-07-05
+- [x] scoring v1 전 항목 + VP 사유 effects 기록 (lastRoundResult.vpBreakdown에 플레이어별 사유 저장)
+- [x] 통제 유권자 VP 상한(4-5인 1 / 6-7인 2), 킹메이커 +2 (6-7인, 표차≤2, 기여 동점이면 미지급 — 보수적 처리)
+- [x] cleanup에서 RoundHistoryEntry 기록 + 영향력 마커 누적
+- [x] **Phase 5 선행분까지 함께 구현**: agendas.ts(§17 조건 11유형 평가기) + finalScoring.ts(§16 최종 점수·동점 v0.3) — cleanup의 마지막 라운드 분기가 finalResult를 즉시 채우는 구조라 분리 구현이 오히려 부자연스러워 앞당김
 
-**완료 조건 (M3 관문)**:
-- [ ] §28 테스트 목록 중 엔진 항목 전부 통과
-- [ ] **통합 테스트: seed 고정 4인 1라운드 시나리오가 income→cleanup까지 액션 시퀀스로 완주**, 최종 상태 스냅샷 일치
-- [ ] runUntilPlayerAction이 결정 지점 6곳에서만 멈춤을 검증하는 테스트
+구현 노트 / 스코프 조정:
+- **§10 마커 vs §15 지지 VP를 다른 조건으로 분리 구현** — 마커는 "표를 행사한 통제 유권자"면 승패 무관 전부 누적, 지지 VP는 "당선 후보를 지지한 경우"만 + 인원별 상한. 이를 위해 voters.ts에서 `computeVoterSupport`(유권자별 {후보, 표, controller, group})를 추출하고 `computeVoterVotes`·voting.ts의 그룹 수 계산·roundScoring이 전부 이 단일 소스를 공유하게 리팩터링.
+- **압박 성공 판정용 상태 2종 추가**: `pressureContributors`(누가 어느 트랙·방향을 밀었나 — campaign.ts 기록), `pressureAppliedTracks`(resolvePolicy가 실제 반영한 최대 2개 — policy.ts 기록). roundScoring이 이 둘을 교차해 "내 압박이 실제 반영됨" +1을 정확히 배정한다.
+- **조건지지 성공은 액션 1회당 +1** (같은 플레이어가 당선 후보에 2회 조건지지했으면 +2) — 브리프 미명시, 액션 단위 보상이 자연스러워 채택.
+- **당선 공약 실행 보너스 +1은 당선 majorBacker에게 무조건 지급** — "공약 실행" 여부를 별도 판정할 조건이 브리프에 없어 당선=실행으로 해석.
+- GameState에 `finalResult: FinalResultSummary | null` 추가 — gameEnd 진입(마지막 cleanup) 시 §16 항목 분해·동점 처리(v0.3 5단계, competition ranking)·전원 의제 공개를 채운다.
+
+**완료 조건 (M3 관문)**: ✅ 2026-07-05 통과 — **4인 1라운드가 엔진 테스트로 끝까지 플레이됨 (첫 핵심 목표 달성)**
+- [x] §28 테스트 목록 중 엔진 항목 전부 통과 — 131건(엔진 106 + 데이터 25), `pnpm typecheck` 통과
+- [x] **통합 테스트(fullRound.test.ts): seed 고정 4인 1라운드(maxRounds=1)가 income→cleanup→gameEnd까지 액션 시퀀스로 완주**, 같은 seed 재생 시 최종 상태 완전 일치
+- [x] runUntilPlayerAction이 결정 지점에서만 멈춤 — 통합 테스트가 각 결정 지점(입찰→공약→캠페인→단일화)의 phase를 순서대로 검증
 
 > 착수 지시: "Phase 3 진행해줘. skills/auction-promise → voters-campaign → unification-voting → scoring 순서로, 각 스킬 테스트 통과 후 다음으로 넘어가줘"
 

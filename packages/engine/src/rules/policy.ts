@@ -59,12 +59,20 @@ export function applyResolvePolicyAction(state: GameState, catalog: CardCatalog)
     return { track, diff: pressure.plus - pressure.minus };
   }).filter((d) => d.diff !== 0);
   diffs.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  const appliedTracks: Array<{ track: PolicyTrackId; direction: PolicyDirection }> = [];
   for (const d of diffs.slice(0, 2)) {
-    tracks = move(tracks, effects, d.track, d.diff > 0 ? 1 : -1, 1);
+    const direction: PolicyDirection = d.diff > 0 ? 1 : -1;
+    tracks = move(tracks, effects, d.track, direction, 1);
+    appliedTracks.push({ track: d.track, direction });
   }
 
   const nextPhase = getNextPhase('policyResolution', state.round.round, state.maxRounds);
   const entry = createLogEntry(state, 'policyResolution', null, 'resolvePolicy', '정책 변화가 반영되었습니다', effects);
-  const next: GameState = { ...appendLog(state, entry), policyTracks: tracks, phase: nextPhase };
+  const next: GameState = {
+    ...appendLog(state, entry),
+    policyTracks: tracks,
+    round: { ...state.round, pressureAppliedTracks: appliedTracks },
+    phase: nextPhase,
+  };
   return { ok: true, state: next, log: [entry] };
 }

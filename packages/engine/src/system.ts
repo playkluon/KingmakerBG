@@ -1,24 +1,26 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // 시스템 액션(§19) 처리 — runSystemStep, runUntilPlayerAction, advancePhase 및 나머지 시스템 액션.
 // resolveAuction/autoSelectPromises는 Skill 4가, revealVoters는 Skill 5가,
-// resolveVoting/resolvePolicy/runUnificationTest는 Skill 6이 실제 규칙을 제공한다.
-// 나머지(generateRandomBids, scoreRound)는 Skill 7이 채우기 전까지 스텁(빈 구현 + TODO)이다.
-// catalog: resolveVoting/resolvePolicy처럼 카드 "내용"이 필요한 액션을 위해 체인 전체로 관통시킨다.
+// resolveVoting/resolvePolicy/runUnificationTest는 Skill 6이, scoreRound는 Skill 7이 실제 규칙을 제공한다.
+// generateRandomBids만 스텁으로 남는다 (디버그 전용 — Phase 7 밸런스 시뮬레이션에서 필요 시 구현).
+// catalog: resolveVoting/resolvePolicy/scoreRound처럼 카드 "내용"이 필요한 액션을 위해 체인 전체로 관통시킨다.
 import { getPlayerCountConfig, INCOME_MONEY, INCOME_ORGANIZATION } from './constants';
 import { appendLog, createLogEntry } from './log';
 import { AUTO_PHASE_ACTION, getNextPhase, PHASES, SYSTEM_ACTION_PHASE } from './phases';
 import type { AutoActionType } from './phases';
 import { createInitialRoundState } from './roundState';
 import { applyResolveAuctionAction } from './rules/auction';
+import { computeFinalResult } from './rules/finalScoring';
 import { applyResolvePolicyAction } from './rules/policy';
 import { applyAutoSelectPromisesAction } from './rules/promise';
+import { applyScoreRoundAction } from './rules/roundScoring';
 import { applyRunUnificationTestAction } from './rules/unification';
 import { applyRevealVotersAction } from './rules/voters';
 import { applyResolveVotingAction } from './rules/voting';
 import type { ReduceResult } from './result';
 import type { CardCatalog } from './types/cards';
 import type { AuctionMode, SystemAction } from './types/actions';
-import type { ActionLogEntry, EffectDescriptor, GameState } from './types/state';
+import type { ActionLogEntry, EffectDescriptor, GameState, RoundHistoryEntry } from './types/state';
 
 const ok = (state: GameState, entry: ActionLogEntry): ReduceResult => ({ ok: true, state, log: [entry] });
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
@@ -46,7 +48,7 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
     case 'revealCandidates':
       return applyRevealCandidates(state);
     case 'nextRound':
-      return applyNextRound(state);
+      return applyNextRound(state, catalog);
     case 'runSystemStep':
       return applyRunSystemStep(state, catalog);
     case 'runUntilPlayerAction':
@@ -63,8 +65,9 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
       return applyResolveVotingAction(state, catalog);
     case 'resolvePolicy':
       return applyResolvePolicyAction(state, catalog);
-    case 'generateRandomBids':
     case 'scoreRound':
+      return applyScoreRoundAction(state, catalog);
+    case 'generateRandomBids':
       return applyStubSystemAction(state, action.type);
     default: {
       const exhaustiveCheck: never = action;
@@ -189,8 +192,13 @@ function applyRevealCandidates(state: GameState): ReduceResult {
   return ok(next, entry);
 }
 
-/** cleanup -> (income | gameEnd). 라운드 번호 증가·RoundState 리셋을 실제로 수행한다 */
-function applyNextRound(state: GameState): ReduceResult {
+/**
+ * cleanup -> (income | gameEnd).
+ * ① RoundHistoryEntry 영구 기록 (§17 비밀 의제 평가의 유일한 근거 데이터 — skills/scoring)
+ * ② 마지막 라운드면 §16 최종 점수를 계산해 finalResult에 저장
+ * ③ 아니면 라운드 번호 증가 + RoundState 리셋
+ */
+function applyNextRound(state: GameState, catalog: CardCatalog): ReduceResult {
   const phaseError = checkExpectedPhase(state, 'nextRound');
   if (phaseError) return fail(phaseError);
 
@@ -198,19 +206,35 @@ function applyNextRound(state: GameState): ReduceResult {
   const nextPhase = isLastRound ? 'gameEnd' : 'income';
   const nextRoundNumber = state.round.round + 1;
 
+  const historyEntry: RoundHistoryEntry = {
+    round: state.round.round,
+    winnerCandidateId: state.round.winnerCandidateId,
+    candidateVotes: state.lastRoundResult?.candidateVotes ?? {},
+    policyTracksAfter: { ...state.policyTracks },
+    vpAwarded: state.round.vpAwardedThisRound,
+    influenceMarkersAwarded: state.round.markersAwardedThisRound,
+  };
+
   const entry = createLogEntry(
     state,
     'cleanup',
     null,
     'nextRound',
-    isLastRound ? '게임이 종료되었습니다' : `${nextRoundNumber}라운드를 시작합니다`,
+    isLastRound ? '게임이 종료되었습니다 — 최종 점수를 공개합니다' : `${nextRoundNumber}라운드를 시작합니다`,
   );
 
-  const next: GameState = {
+  let next: GameState = {
     ...appendLog(state, entry),
     phase: nextPhase,
+    roundHistory: [...state.roundHistory, historyEntry],
     round: isLastRound ? state.round : createInitialRoundState(nextRoundNumber),
   };
+
+  if (isLastRound) {
+    // finalResult는 히스토리가 확정된 다음 상태를 기준으로 계산한다 (candidateWon류가 마지막 라운드도 봐야 하므로)
+    next = { ...next, finalResult: computeFinalResult(next, catalog) };
+  }
+
   return ok(next, entry);
 }
 

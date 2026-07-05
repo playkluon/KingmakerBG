@@ -17,6 +17,8 @@ export interface PlayerCountConfig {
   campaignActionsPerPlayer: number;
   /** 6-7인 킹메이커 점수 활성 여부 */
   kingmakerBonusEnabled: boolean;
+  /** §15: 통제 유권자가 당선 후보를 지지할 때 얻는 VP의 라운드당 상한 (4-5인 1 / 6-7인 2) */
+  voterSupportVpCap: number;
 }
 
 export const PLAYER_COUNT_CONFIGS: Readonly<Record<number, PlayerCountConfig>> = {
@@ -28,6 +30,7 @@ export const PLAYER_COUNT_CONFIGS: Readonly<Record<number, PlayerCountConfig>> =
     campSlots: ['majorBacker', 'coBacker'],
     campaignActionsPerPlayer: 2,
     kingmakerBonusEnabled: false,
+    voterSupportVpCap: 1,
   },
   5: {
     playerCount: 5,
@@ -37,6 +40,7 @@ export const PLAYER_COUNT_CONFIGS: Readonly<Record<number, PlayerCountConfig>> =
     campSlots: ['majorBacker', 'coBacker'],
     campaignActionsPerPlayer: 2,
     kingmakerBonusEnabled: false,
+    voterSupportVpCap: 1,
   },
   6: {
     playerCount: 6,
@@ -46,6 +50,7 @@ export const PLAYER_COUNT_CONFIGS: Readonly<Record<number, PlayerCountConfig>> =
     campSlots: ['majorBacker', 'coBacker', 'organizer'],
     campaignActionsPerPlayer: 2,
     kingmakerBonusEnabled: true,
+    voterSupportVpCap: 2,
   },
   7: {
     playerCount: 7,
@@ -55,6 +60,7 @@ export const PLAYER_COUNT_CONFIGS: Readonly<Record<number, PlayerCountConfig>> =
     campSlots: ['majorBacker', 'coBacker', 'organizer'],
     campaignActionsPerPlayer: 2,
     kingmakerBonusEnabled: true,
+    voterSupportVpCap: 2,
   },
 };
 
@@ -128,3 +134,14 @@ export const CAMPAIGN_ACTIONS_PER_PLAYER = 2;
 // ── 부록 A-4: 미정 액션 잠정 처리 ──────────────────────────────
 /** poll(여론조사) 비활성 플래그 — 비용/효과가 브리프에 미정이라 타입·자리만 두고 막아둔다 */
 export const POLL_ENABLED = false;
+
+// ── §15 라운드 점수 (scoring v1) ────────────────────────────────
+export const SCORE_MAJOR_BACKER_WIN = 4;
+export const SCORE_CO_BACKER_WIN = 2;
+export const SCORE_ORGANIZER_WIN = 1;
+export const SCORE_PROMISE_BONUS_MAJOR_BACKER = 1;
+export const SCORE_RUNNER_UP_MAJOR_BACKER = 1;
+export const SCORE_CONDITIONAL_SUPPORT_SUCCESS = 1;
+export const SCORE_POLICY_PRESSURE_SUCCESS = 1;
+export const SCORE_VOTER_SUPPORT_WINNER = 1;
+export const SCORE_KINGMAKER_BONUS = 2;

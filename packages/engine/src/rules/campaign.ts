@@ -160,6 +160,13 @@ export function applyPressurePolicy(
         ...s.round.policyPressure,
         [action.track]: { ...s.round.policyPressure[action.track], [key]: s.round.policyPressure[action.track][key] + 1 },
       },
+      pressureContributors: {
+        ...s.round.pressureContributors,
+        [action.track]: {
+          ...s.round.pressureContributors[action.track],
+          [action.direction]: [...(s.round.pressureContributors[action.track]?.[action.direction] ?? []), action.actor],
+        },
+      },
     },
   }));
 }

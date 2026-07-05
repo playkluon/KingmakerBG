@@ -4,7 +4,7 @@
 import { reduce } from '../src/reducer';
 import { buildPlaceholderIds, setupGame } from '../src/setup';
 import type { CardCatalog } from '../src/types/cards';
-import type { CandidateId, PlayerId } from '../src/types/ids';
+import type { AgendaId, CandidateId, PlayerId, PromiseId, VoterId } from '../src/types/ids';
 import type { DrawPiles, GameState } from '../src/types/state';
 
 /** §4 카드 수량(21/30/48/15/30/30/16)을 그대로 따르는 placeholder 덱 */
@@ -23,6 +23,64 @@ export function testDecks(): DrawPiles {
 /** 카드 내용이 필요 없는 테스트(§28 phase 머신·결정성 검증)용 빈 카탈로그 */
 export function emptyCatalog(): CardCatalog {
   return { candidates: {}, promises: {}, voters: {}, issues: {}, candidateEvents: {}, voterEvents: {}, agendas: {} };
+}
+
+const PLACEHOLDER_TRACKS = ['economy', 'labor', 'society', 'industry', 'foreign'] as const;
+const PLACEHOLDER_GROUPS = ['laborers', 'youth', 'seniors'] as const;
+
+/**
+ * testDecks()의 placeholder ID 전체에 대응하는 카드 내용을 결정적으로 채운 카탈로그.
+ * 통합 테스트(1라운드 완주)처럼 어떤 카드가 뽑히든 내용 조회가 성공해야 하는 시나리오에서 사용한다.
+ * 실카드 데이터(packages/data)와의 통합은 data 쪽 engineIntegration.test.ts가 검증한다.
+ */
+export function placeholderCatalog(): CardCatalog {
+  const catalog = emptyCatalog();
+  buildPlaceholderIds<CandidateId>('candidate', 21).forEach((id, i) => {
+    catalog.candidates[id] = {
+      id,
+      name: `후보${i}`,
+      description: '테스트',
+      baseVotes: (i % 5) + 2,
+      leaningTags: [`성향${i % 3}`],
+      supportedVoterGroups: [PLACEHOLDER_GROUPS[i % 3]!],
+      electionEffect: { kind: 'fixedPolicyMove', track: PLACEHOLDER_TRACKS[i % 5]!, direction: i % 2 === 0 ? 1 : -1, amount: 1 },
+      abilities: [],
+    };
+  });
+  buildPlaceholderIds<PromiseId>('promise', 30).forEach((id, i) => {
+    const track = PLACEHOLDER_TRACKS[i % 5]!;
+    const direction = i % 2 === 0 ? 1 : (-1 as const);
+    catalog.promises[id] = {
+      id,
+      name: `공약${i}`,
+      description: '테스트',
+      policyMove: { track, direction, amount: 1 },
+      reactionTag: `${track}:${direction}`,
+      effect: { kind: 'extraVotes', amount: 1 },
+    };
+  });
+  buildPlaceholderIds<VoterId>('voter', 48).forEach((id, i) => {
+    const track = PLACEHOLDER_TRACKS[i % 5]!;
+    catalog.voters[id] = {
+      id,
+      name: `유권자${i}`,
+      description: '테스트',
+      group: PLACEHOLDER_GROUPS[i % 3]!,
+      voteWeight: (i % 3) + 1,
+      preferredTag: `${track}:1`,
+      conflictTag: `${track}:-1`,
+    };
+  });
+  buildPlaceholderIds<AgendaId>('agenda', 16).forEach((id, i) => {
+    catalog.agendas[id] = {
+      id,
+      name: `의제${i}`,
+      description: '테스트',
+      condition: { kind: 'remainingMoneyAtLeast', minAmount: 5 },
+      points: 8,
+    };
+  });
+  return catalog;
 }
 
 /** startGame 후 자동 진행 가능한 phase를 끝까지 밟아 auctionBidding에 멈춘 상태를 만든다 (Skill 4+ 테스트 공용) */
