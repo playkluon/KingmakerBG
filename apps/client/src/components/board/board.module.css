@@ -92,6 +92,54 @@
   margin-top: 2px;
 }
 
+/* ── 온보딩 힌트 (1회성) ── */
+.hintCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #eaf1fb;
+  border: 1px solid #c7d8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 0.84rem;
+  color: #2e4a78;
+}
+
+.hintDismiss {
+  font: inherit;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: #2e4a78;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── 목표·라운드 종료 조건 상시 표시 (§25-11) ── */
+.goalsStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: baseline;
+  background: #f0efe9;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: #555d70;
+}
+
+.goalsStrip strong {
+  color: #96793b;
+}
+
+.goalsHint {
+  color: #2e4a78;
+}
+
 /* ── 후보/유권자 카드 그리드 ── */
 .cardGrid {
   display: grid;
@@ -260,4 +308,91 @@
 .buttonGhost {
   background: #ffffff;
   color: #2e4a78;
+}
+
+/* ── 라운드 결과 오버레이 ── */
+.overlayBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 34, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 900;
+  padding: 16px;
+}
+
+.overlayCard {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 18px 20px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.roundSummaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+
+.roundSummaryRow {
+  border-bottom: 1px solid #eeece4;
+  padding-bottom: 8px;
+}
+
+.roundSummaryRow:last-child {
+  border-bottom: none;
+}
+
+.roundSummaryAmount {
+  font-weight: 800;
+  color: #2e7d32;
+}
+
+.roundSummaryReasons {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 0.8rem;
+  color: #555d70;
+}
+
+/* ── 액션 결과 토스트 ── */
+.toastStack {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.toast {
+  background: #20283a;
+  color: #f2f3f7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.toastSummary {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.toastEffects {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.toastEffect {
+  font-size: 0.72rem;
+  color: #cdd3e0;
 }

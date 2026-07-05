@@ -5,13 +5,18 @@ import { navigate } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
 import { ActionLog } from '../components/board/ActionLog';
 import { CandidateBoard } from '../components/board/CandidateBoard';
+import { EffectToast } from '../components/board/EffectToast';
 import { FinalResults } from '../components/board/FinalResults';
+import { OnboardingHints } from '../components/board/OnboardingHints';
 import { PhaseHeader } from '../components/board/PhaseHeader';
 import { PlayerPanels } from '../components/board/PlayerPanels';
 import { PolicyTracks } from '../components/board/PolicyTracks';
+import { RoundGoals } from '../components/board/RoundGoals';
+import { RoundSummary } from '../components/board/RoundSummary';
 import { VoterBoard } from '../components/board/VoterBoard';
 import { ActionPanel } from '../components/player/ActionPanel';
 import { MyResources } from '../components/player/MyResources';
+import { ScoreRoute } from '../components/player/ScoreRoute';
 import { SecretAgenda } from '../components/player/SecretAgenda';
 import { TodoBanner } from '../components/player/TodoBanner';
 import styles from './screens.module.css';
@@ -66,11 +71,16 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
 
   return (
     <main className={styles.page}>
+      <EffectToast state={view} />
+      <RoundSummary state={view} />
       <div className={styles.wide}>
         <PhaseHeader state={view} />
+        <RoundGoals state={view} />
         <FinalResults state={view} />
         <TodoBanner state={view} myPlayerId={myPlayerId} />
+        <OnboardingHints phase={view.phase} />
         <MyResources state={view} myPlayerId={myPlayerId} />
+        <ScoreRoute state={view} myPlayerId={myPlayerId} />
         <SecretAgenda state={view} myPlayerId={myPlayerId} />
         <ActionPanel state={view} myPlayerId={myPlayerId} />
 

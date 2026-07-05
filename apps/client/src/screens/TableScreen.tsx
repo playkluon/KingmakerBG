@@ -6,10 +6,13 @@ import { navigate } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
 import { ActionLog } from '../components/board/ActionLog';
 import { CandidateBoard } from '../components/board/CandidateBoard';
+import { EffectToast } from '../components/board/EffectToast';
 import { FinalResults } from '../components/board/FinalResults';
 import { PhaseHeader } from '../components/board/PhaseHeader';
 import { PlayerPanels } from '../components/board/PlayerPanels';
 import { PolicyTracks } from '../components/board/PolicyTracks';
+import { RoundGoals } from '../components/board/RoundGoals';
+import { RoundSummary } from '../components/board/RoundSummary';
 import { VoterBoard } from '../components/board/VoterBoard';
 import board from '../components/board/board.module.css';
 import styles from './screens.module.css';
@@ -79,8 +82,11 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
 
   return (
     <main className={styles.page}>
+      <EffectToast state={view} />
+      <RoundSummary state={view} />
       <div className={styles.wide}>
         <PhaseHeader state={view} />
+        <RoundGoals state={view} />
         <FinalResults state={view} />
 
         {canControl && (

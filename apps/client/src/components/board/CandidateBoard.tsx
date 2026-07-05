@@ -2,6 +2,7 @@
 // 공개 후보 / 출마 후보 / 확정 공약 / 현재 표 (§22 필수 UI)
 import type { CandidateId, GameState } from '@kingmakers/engine';
 import { candidateById, candidateName, promiseById } from '../../lib/cards';
+import { CAMP_ROLE_LABELS } from '../../lib/terms';
 import styles from './board.module.css';
 
 interface CandidateBoardProps {
@@ -56,9 +57,9 @@ export function CandidateBoard({ state }: CandidateBoardProps) {
                     {lastVotes?.[id] != null && ` · 최종 표 ${lastVotes[id]}`}
                   </div>
                   <div className={styles.cardMeta}>
-                    메인 후원자 {nameOf(camp?.majorBacker)}
-                    {camp?.coBacker && ` · 공동 후원자 ${nameOf(camp.coBacker)}`}
-                    {camp?.organizer && ` · 조직책 ${nameOf(camp.organizer)}`}
+                    {CAMP_ROLE_LABELS.majorBacker} {nameOf(camp?.majorBacker)}
+                    {camp?.coBacker && ` · ${CAMP_ROLE_LABELS.coBacker} ${nameOf(camp.coBacker)}`}
+                    {camp?.organizer && ` · ${CAMP_ROLE_LABELS.organizer} ${nameOf(camp.organizer)}`}
                   </div>
                   <div className={styles.cardMeta}>공약: {promise ? promise.name : '선택 대기 중'}</div>
                 </div>

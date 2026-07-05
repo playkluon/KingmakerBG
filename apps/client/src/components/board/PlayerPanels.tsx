@@ -2,6 +2,7 @@
 // 좌석별 공개 자원(money/org/rep/VP), 캠프 슬롯 배지 (§22 필수 UI: 플레이어 패널)
 import type { CampRole, CandidateId, GameState, PlayerId } from '@kingmakers/engine';
 import { candidateName } from '../../lib/cards';
+import { CAMP_ROLE_LABELS } from '../../lib/terms';
 import styles from './board.module.css';
 
 interface PlayerPanelsProps {
@@ -9,12 +10,6 @@ interface PlayerPanelsProps {
   /** 내 좌석이면 강조 표시 — table/spectator 화면은 생략한다 */
   myPlayerId?: PlayerId | null;
 }
-
-const ROLE_LABELS: Record<CampRole, string> = {
-  majorBacker: '메인 후원자',
-  coBacker: '공동 후원자',
-  organizer: '조직책',
-};
 
 function campRolesOf(state: GameState, playerId: PlayerId): Array<{ role: CampRole; candidateId: CandidateId }> {
   const result: Array<{ role: CampRole; candidateId: CandidateId }> = [];
@@ -50,7 +45,7 @@ export function PlayerPanels({ state, myPlayerId }: PlayerPanelsProps) {
               </div>
               {roles.length > 0 && (
                 <div className={styles.cardMeta}>
-                  {roles.map((r) => `${ROLE_LABELS[r.role]}: ${candidateName(r.candidateId)}`).join(' · ')}
+                  {roles.map((r) => `${CAMP_ROLE_LABELS[r.role]}: ${candidateName(r.candidateId)}`).join(' · ')}
                 </div>
               )}
             </div>

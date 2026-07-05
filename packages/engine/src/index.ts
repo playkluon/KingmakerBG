@@ -111,3 +111,5 @@ export { computeFinalResult } from './rules/finalScoring';
 // ── selectors (클라이언트 import 허용 대상) ───────────────────
 export { getPendingDecision, getPhaseDescription, isGameOver, isWaitingForPlayerDecision } from './selectors';
 export type { PendingDecision } from './selectors';
+export { getScoreRoute } from './selectors/scoreRoute';
+export type { ScoreRouteEntry } from './selectors/scoreRoute';

@@ -1,11 +1,29 @@
-// 기반 스킬: skills/scoring/SKILL.md (§16 최종 점수) — Phase 5 최소 표시, 상세 비중 강조는 Phase 6(ux-feedback)에서 보강
+// 기반 스킬: skills/scoring/SKILL.md (§16 최종 점수), skills/ux-feedback/SKILL.md (§30-3 "무엇이 승패를 갈랐나")
 // 게임 종료 시 전원 공개되는 최종 점수 표 (비밀 의제 포함 — §16 규칙상 이 시점엔 더 이상 비밀이 아니다)
-import type { GameState } from '@kingmakers/engine';
+import type { FinalScoreEntry, GameState } from '@kingmakers/engine';
 import { agendaById, candidateName } from '../../lib/cards';
 import styles from './board.module.css';
 
 interface FinalResultsProps {
   state: GameState;
+}
+
+/** 이미 확정된 점수 항목끼리 단순 뺄셈만 하는 화면 표시 로직이다 — 새 규칙 계산이 아니다 */
+const CATEGORIES: Array<[label: string, key: keyof FinalScoreEntry]> = [
+  ['공개 VP', 'baseVp'],
+  ['비밀 의제 달성', 'agendaVp'],
+  ['자금 보너스', 'moneyBonusVp'],
+  ['평판 보너스', 'reputationBonusVp'],
+];
+
+/** 단독 승자와 2위의 항목별 차이 중 가장 큰 것을 "승부를 가른 요소"로 고른다 (§30-3) */
+function findDecidingFactor(winner: FinalScoreEntry, runnerUp: FinalScoreEntry): { label: string; diff: number } | null {
+  let best: { label: string; diff: number } | null = null;
+  for (const [label, key] of CATEGORIES) {
+    const diff = (winner[key] as number) - (runnerUp[key] as number);
+    if (diff > 0 && (!best || diff > best.diff)) best = { label, diff };
+  }
+  return best;
 }
 
 export function FinalResults({ state }: FinalResultsProps) {
@@ -14,10 +32,18 @@ export function FinalResults({ state }: FinalResultsProps) {
 
   const nameOf = (id: string) => state.players.find((p) => p.id === id)?.name ?? id;
   const sorted = [...final.entries].sort((a, b) => a.rank - b.rank);
+  const decidingFactor =
+    final.winners.length === 1 && sorted.length >= 2 ? findDecidingFactor(sorted[0]!, sorted[1]!) : null;
 
   return (
     <div className={styles.section}>
       <h2 className={styles.sectionTitle}>최종 결과</h2>
+      {decidingFactor && (
+        <p className={styles.goalsStrip}>
+          승부를 가른 요소: <strong>{decidingFactor.label}</strong> 차이 {decidingFactor.diff}점 (
+          {nameOf(sorted[0]!.playerId)} 승리)
+        </p>
+      )}
       <div className={styles.tableWrap}>
         <table className={styles.finalTable}>
           <thead>

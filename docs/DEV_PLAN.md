@@ -228,17 +228,26 @@
 
 ---
 
-## Phase 6 — 플레이테스트용 UX (skills/ux-feedback) → M6
+## Phase 6 — 플레이테스트용 UX (skills/ux-feedback) → M6 ✅ 구현 완료 2026-07-05 (실제 플레이테스트는 미실시)
 
-- [ ] EffectToast — effects[] 구조화 렌더 ("누구에게 무엇이")
-- [ ] ScoreRoute — 내 점수 루트 (엔진 셀렉터 기반)
-- [ ] RoundSummary — 플레이어별 VP + 사유 오버레이
-- [ ] RoundGoals — 라운드 종료까지 남은 조건, 목표 점수대 상시 표시
-- [ ] FinalResults 완성 — "무엇이 승패를 갈랐나" 비중 표시
-- [ ] terms.ts 용어 사전 — majorBacker→주요 후원자 등, 개발자 용어 노출 전수 제거
-- [ ] OnboardingHints — phase 첫 진입 1회성 힌트
+- [x] EffectToast — effects[] 구조화 렌더 ("누구에게 무엇이") — `components/board/EffectToast.tsx`, actionLog 신규 항목을 감지해 5초 토스트
+- [x] ScoreRoute — 내 점수 루트 (엔진 셀렉터 기반) — 엔진에 `getScoreRoute` selector 신설(CardCatalog 불필요, 캠프 역할·조건지지·정책 압박 기여·유권자 통제 기반 가능 VP 나열), `components/player/ScoreRoute.tsx`
+- [x] RoundSummary — 플레이어별 VP + 사유 오버레이 — `lastRoundResult.vpBreakdown` 그대로 사용, 라운드별 1회 표시 후 확인 시 숨김
+- [x] RoundGoals — 라운드 종료까지 남은 조건, 목표 점수대 상시 표시 — `components/board/RoundGoals.tsx`
+- [x] FinalResults 완성 — "무엇이 승패를 갈랐나" 비중 표시 — 단독 승자와 2위의 항목별(공개VP/의제/자금/평판) 차이 중 최댓값을 승부 요인으로 표시(이미 확정된 숫자끼리의 단순 비교라 클라이언트 룰 계산이 아니다)
+- [x] terms.ts 용어 사전 — majorBacker→주요 후원자 등, 개발자 용어 노출 전수 제거 — `lib/terms.ts` 신설(CAMP_ROLE_LABELS, EFFECT_FIELD_LABELS, resolveTargetName), 기존 "메인 후원자"(비표준 표기) 2곳을 "주요 후원자"로 통일
+- [x] OnboardingHints — phase 첫 진입 1회성 힌트 — `components/board/OnboardingHints.tsx`, localStorage `kingmakers:seenHints`로 재노출 방지
 
-**완료 조건 (M6)**: 게임을 모르는 사람 1명 플레이테스트 — 로그를 읽지 않고 ①방금 일어난 일 ②지금 할 일 ③이기는 방법을 말할 수 있으면 통과. 이후 **밸런스 피드백은 constants.ts 수치 조정으로만 반영.**
+**완료 조건 (M6)**:
+- [ ] 게임을 모르는 사람 1명 플레이테스트 — **AI 세션은 실제 신규 플레이어 반응을 낼 수 없어 미실시.** 사용자가 직접 진행 필요
+- [x] 라운드 요약에 VP 사유 없는 항목이 0건 — RoundSummary는 `vpBreakdown.reasons`(엔진이 채점 시 직접 채움)를 그대로 렌더하므로 항목 누락이 구조적으로 불가능
+- [x] 최종 화면에서 승패 원인이 한눈에 보임 — FinalResults 상단 "승부를 가른 요소" 문구로 확인(Claude Preview로 실제 5라운드 게임에서 렌더 확인)
+
+이후 **밸런스 피드백은 constants.ts 수치 조정으로만 반영.**
+
+**구현 노트**:
+- 브라우저 실측 중 EffectToast가 안 보인 것처럼 보인 문제가 있었으나, 원인은 코드가 아니라 도구 호출 왕복 시간이 토스트 자동 소멸(5초)보다 길었던 테스트 타이밍이었다 — `window.__toastDebug` 임시 계측으로 실제로는 정상 동작(React 18 StrictMode의 마운트 2회 호출도 정상 무해)함을 확인 후 계측 코드 제거.
+- `preview_console_logs` 도구가 이전 페이지 탐색의 콘솔 오류를 새로고침 후에도 동일한 타임스탬프로 반복 재생하는 현상을 발견 — 이 세션에서는 DOM 직접 조회(`preview_eval`)로 우회 확인했다. 실제 브라우저 콘솔 문제인지 도구 자체 캐싱 문제인지는 후속 세션에서 재확인이 필요할 수 있다.
 
 > 착수 지시: "Phase 6 진행해줘. skills/ux-feedback"
 
