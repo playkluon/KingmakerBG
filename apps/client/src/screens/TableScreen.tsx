@@ -23,6 +23,16 @@ interface TableScreenProps {
   forceReadOnly?: boolean;
 }
 
+type TableMobileTab = 'candidates' | 'voters' | 'policy' | 'players' | 'log';
+
+const TABLE_MOBILE_TABS: Array<{ key: TableMobileTab; label: string }> = [
+  { key: 'candidates', label: '후보' },
+  { key: 'voters', label: '유권자' },
+  { key: 'policy', label: '정책' },
+  { key: 'players', label: '플레이어' },
+  { key: 'log', label: '로그' },
+];
+
 /**
  * 공용 진행 화면 — 시스템 진행과 플레이어 액션 UI를 분리한다(§22).
  * 서버가 액션 직후 자동으로 진행 가능한 곳까지 이어서 처리하므로(부록 A-13)
@@ -38,6 +48,7 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
 
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
+  const [mobileTab, setMobileTab] = useState<TableMobileTab>('candidates');
 
   useEffect(() => {
     let cancelled = false;
@@ -85,28 +96,72 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
       <EffectToast state={view} />
       <RoundSummary state={view} />
       <div className={styles.wide}>
-        <PhaseHeader state={view} />
-        <RoundGoals state={view} />
-        <FinalResults state={view} />
+        <div className={styles.desktopPlayLayout}>
+          <PhaseHeader state={view} />
+          <RoundGoals state={view} />
+          <FinalResults state={view} />
 
-        {canControl && (
-          <div className={board.section}>
-            <button
-              className={board.button}
-              disabled={locked || advancing || view.phase === 'gameEnd'}
-              onClick={handleAdvance}
-            >
-              {advancing ? '진행 중…' : '진행'}
-            </button>
-            {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+          {canControl && (
+            <div className={board.section}>
+              <button
+                className={board.button}
+                disabled={locked || advancing || view.phase === 'gameEnd'}
+                onClick={handleAdvance}
+              >
+                {advancing ? '진행 중…' : '진행'}
+              </button>
+              {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+            </div>
+          )}
+
+          <PolicyTracks state={view} />
+          <CandidateBoard state={view} />
+          <VoterBoard state={view} />
+          <PlayerPanels state={view} />
+          <ActionLog state={view} />
+        </div>
+
+        <div className={styles.mobilePlayLayout}>
+          <PhaseHeader state={view} />
+          <RoundGoals state={view} />
+          <FinalResults state={view} />
+
+          {canControl && (
+            <div className={board.section}>
+              <button
+                className={board.button}
+                disabled={locked || advancing || view.phase === 'gameEnd'}
+                onClick={handleAdvance}
+              >
+                {advancing ? '진행 중…' : '진행'}
+              </button>
+              {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+            </div>
+          )}
+
+          <div className={styles.mobileTabBar} role="tablist" aria-label="테이블 정보">
+            {TABLE_MOBILE_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === tab.key}
+                className={styles.mobileTab}
+                onClick={() => setMobileTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        <PolicyTracks state={view} />
-        <CandidateBoard state={view} />
-        <VoterBoard state={view} />
-        <PlayerPanels state={view} />
-        <ActionLog state={view} />
+          <div className={styles.mobileTabPanel}>
+            {mobileTab === 'candidates' && <CandidateBoard state={view} />}
+            {mobileTab === 'voters' && <VoterBoard state={view} />}
+            {mobileTab === 'policy' && <PolicyTracks state={view} />}
+            {mobileTab === 'players' && <PlayerPanels state={view} />}
+            {mobileTab === 'log' && <ActionLog state={view} />}
+          </div>
+        </div>
       </div>
     </main>
   );
