@@ -188,3 +188,85 @@
   gap: 12px;
   margin-top: 6px;
 }
+
+/* ── Play Layouts ── */
+.desktopPlayLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mobilePlayLayout {
+  display: none;
+}
+
+/* ── Mobile Layout & Bottom Navigation Bar ── */
+@media (max-width: 768px) {
+  .desktopPlayLayout {
+    display: none;
+  }
+  
+  .mobilePlayLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 90px; /* 하단 네비게이션 바에 가려지지 않도록 여백 확보 */
+    width: 100%;
+  }
+
+  .mobileTabBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    background: var(--bg-panel);
+    backdrop-filter: var(--glass-blur);
+    border-top: var(--glass-border);
+    padding: 10px 8px 24px; /* safe-area 고려하여 하단 여백 추가 */
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .mobileTab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 10px 4px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+
+  .mobileTab:active {
+    transform: scale(0.95);
+  }
+
+  .mobileTab[aria-selected="true"] {
+    color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .mobileTabPanel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobileActionDock {
+    position: sticky;
+    top: 10px;
+    z-index: 900;
+    margin-bottom: 12px;
+  }
+}
