@@ -512,7 +512,7 @@ describe('부록 A-22: 호스트 겸 참가, 관전자 정원, 공개방 목록,
     expect(left.closed).toBe(false);
   });
 
-  it('호스트가 나가면 방이 닫히고, 남아있던 참가자는 room:closed를 받는다', async () => {
+  it('호스트가 나가도 다른 참가자가 남아있으면 방이 유지되고, 방장 권한이 이양된다', async () => {
     clearRooms();
     const host = await connect();
     const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
@@ -522,15 +522,14 @@ describe('부록 A-22: 호스트 겸 참가, 관전자 정원, 공개방 목록,
     const joined = await emitAck<{ playerToken: string }>(guest, 'room:join', { roomId, name: '손님' });
     await emitAck(guest, 'room:attach', { roomId, token: joined.playerToken });
 
-    const guestSeesClosed = new Promise<void>((resolve) => guest.once('room:closed', () => resolve()));
+    const guestSeesUpdate = new Promise<void>((resolve) => guest.once('room:update', () => resolve()));
     const left = await emitAck<{ closed: boolean }>(host, 'room:leave', { roomId, token: hostToken });
     expect(left.ok).toBe(true);
-    expect(left.closed).toBe(true);
-    await guestSeesClosed;
-
-    // 방이 실제로 사라졌는지 확인 — 재접속 시도가 "존재하지 않는 방"으로 거부되어야 한다
-    const afterClose = await emitAck(guest, 'room:attach', { roomId, token: joined.playerToken });
-    expect(afterClose.ok).toBe(false);
-    expect(afterClose.reason).toContain('존재하지 않는 방');
+    expect(left.closed).toBe(false); // 방은 닫히지 않고 유지된다
+    
+    // 손님이 방장이 되었는지 확인
+    const afterHostLeft = await emitAck<{ isHost: boolean }>(guest, 'room:attach', { roomId, token: joined.playerToken });
+    expect(afterHostLeft.ok).toBe(true);
+    expect(afterHostLeft.isHost).toBe(true);
   });
 });

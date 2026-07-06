@@ -71,6 +71,8 @@ interface GameStore {
   publicRooms: PublicRoomSummary[];
   /** 마지막 거부/오류 사유 — 화면이 토스트로 보여주고 지운다 */
   lastError: string | null;
+  /** 방 장기 비활성화 시 타임아웃 경고 팝업 노출 여부 */
+  showIdleWarning: boolean;
 
   createRoom(name: string, options?: { visibility?: RoomVisibility; allowSpectators?: boolean; customRoomId?: string }): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
   joinRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
@@ -86,6 +88,8 @@ interface GameStore {
   leaveRoom(): Promise<{ ok: boolean; reason?: string }>;
   sendAction(action: GameAction): Promise<{ ok: boolean; reason?: string }>;
   clearError(): void;
+  /** 타임아웃 경고 시 방 삭제를 연장한다 */
+  sendKeepAlive(): Promise<{ ok: boolean; reason?: string }>;
 }
 
 /** 방이 사라졌을 때(호스트 나감 등) 로컬 상태를 초기화하는 공통 로직 */
@@ -102,6 +106,7 @@ function resetRoomState(reason: string | null): void {
     roomState: null,
     view: null,
     lastError: reason,
+    showIdleWarning: false,
   });
 }
 
@@ -124,8 +129,10 @@ function getSocket(): Socket {
   socket.on('action:rejected', (payload: { reason?: string }) => {
     useGameStore.setState({ lastError: payload?.reason ?? '요청이 거부되었습니다' });
   });
+  socket.on('room:idleWarning', () => useGameStore.setState({ showIdleWarning: true }));
+  socket.on('room:idleWarningClear', () => useGameStore.setState({ showIdleWarning: false }));
   // 호스트가 나가서 방이 닫힘 (부록 A-22) — 남아있던 참가자·관전자 전원이 이 이벤트를 받는다
-  socket.on('room:closed', () => resetRoomState('호스트가 방을 나가 방이 종료되었습니다'));
+  socket.on('room:closed', () => resetRoomState('호스트가 방을 나가 거나 장기 비활성으로 인해 방이 종료되었습니다'));
 
   return socket;
 }
@@ -149,6 +156,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   view: null,
   publicRooms: [],
   lastError: null,
+  showIdleWarning: false,
 
   async createRoom(name, options) {
     const res = await emitAck('room:create', { name, visibility: options?.visibility, allowSpectators: options?.allowSpectators, customRoomId: options?.customRoomId });
@@ -253,5 +261,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearError() {
     set({ lastError: null });
+  },
+
+  async sendKeepAlive() {
+    const { roomId } = get();
+    if (!roomId) return { ok: false, reason: '방 정보가 없습니다' };
+    const res = await emitAck('room:keepAlive', { roomId });
+    if (!res.ok) {
+      set({ lastError: res.reason ?? '연장에 실패했습니다' });
+      return { ok: false, reason: res.reason };
+    }
+    set({ showIdleWarning: false });
+    return { ok: true };
   },
 }));

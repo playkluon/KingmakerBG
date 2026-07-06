@@ -33,6 +33,10 @@ export interface Room {
   players: RoomPlayer[];
   spectators: RoomSpectator[];
   game: GameState | null;
+  /** 타임아웃 관리를 위한 마지막 활동 시간 */
+  lastActivityAt: number;
+  /** 타임아웃 경고 발송 여부 */
+  timeoutWarningIssued: boolean;
 }
 
 /** 방 관련 실패는 throw가 아니라 사유 문자열로 돌려준다 (CLAUDE.md — 서버가 해당 소켓에만 회신) */
@@ -79,6 +83,25 @@ export function clearRooms(): void {
   rooms.clear();
 }
 
+/** 전체 방 목록 반환 (타이머 검사용) */
+export function getAllRooms(): Room[] {
+  return [...rooms.values()];
+}
+
+/** 방의 마지막 활동 시간을 현재로 갱신하고 경고 상태를 초기화한다 */
+export function touchRoom(roomId: string): void {
+  const room = rooms.get(roomId);
+  if (room) {
+    room.lastActivityAt = Date.now();
+    room.timeoutWarningIssued = false;
+  }
+}
+
+/** 방 강제 삭제 (타임아웃용) */
+export function destroyRoom(roomId: string): void {
+  rooms.delete(roomId);
+}
+
 export interface CreateRoomOptions {
   /** 공개방은 room:list로 조회되고, 비공개방은 초대 링크로만 입장한다 (부록 A-22). 기본값은 안전한 쪽인 비공개 */
   visibility?: RoomVisibility;
@@ -118,6 +141,8 @@ export function createRoom(hostName: string, options: CreateRoomOptions = {}): R
     players: [{ token: hostToken, name, ready: false, playerId: null }],
     spectators: [],
     game: null,
+    lastActivityAt: Date.now(),
+    timeoutWarningIssued: false,
   };
   rooms.set(room.id, room);
   return { ok: true, value: room };

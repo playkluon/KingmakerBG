@@ -14,6 +14,9 @@ import {
   spectateRoom,
   startGame,
   toRoomStatePayload,
+  getAllRooms,
+  touchRoom,
+  destroyRoom,
   type Room,
   type RoomVisibility,
 } from './rooms';
@@ -109,6 +112,25 @@ function authorizeAction(room: Room, token: string, action: GameAction): string 
 
 /** 서버의 모든 소켓 이벤트를 등록한다 */
 export function registerSocketHandlers(io: Server): void {
+  // ── 비활성 방 타임아웃 검사 (1분 주기) ──
+  const IDLE_WARNING_MS = 25 * 60 * 1000; // 25분
+  const IDLE_DELETE_MS = 30 * 60 * 1000;  // 30분
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const room of getAllRooms()) {
+      const idleTime = now - room.lastActivityAt;
+      if (idleTime > IDLE_DELETE_MS) {
+        destroyRoom(room.id);
+        io.in(roomChannel(room.id)).emit('room:closed');
+        io.in(roomChannel(room.id)).socketsLeave(roomChannel(room.id));
+      } else if (idleTime > IDLE_WARNING_MS && !room.timeoutWarningIssued) {
+        room.timeoutWarningIssued = true;
+        io.in(roomChannel(room.id)).emit('room:idleWarning');
+      }
+    }
+  }, 60000);
+
   io.on('connection', (socket: Socket) => {
     // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트는 항상 좌석을 겸함) ──
     socket.on('room:create', (payload: { name?: string; visibility?: RoomVisibility; allowSpectators?: boolean; customRoomId?: string }, cb?: unknown) => {
@@ -130,6 +152,7 @@ export function registerSocketHandlers(io: Server): void {
     socket.on('room:join', (payload: { roomId?: string; name?: string }, cb?: unknown) => {
       const result = joinRoom(String(payload?.roomId ?? ''), String(payload?.name ?? ''));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      touchRoom(result.value.room.id);
       broadcastRoomState(io, result.value.room);
       ack(cb)({ ok: true, playerToken: result.value.token, roomState: toRoomStatePayload(result.value.room) });
     });
@@ -138,6 +161,7 @@ export function registerSocketHandlers(io: Server): void {
     socket.on('room:spectate', (payload: { roomId?: string; name?: string }, cb?: unknown) => {
       const result = spectateRoom(String(payload?.roomId ?? ''), String(payload?.name ?? ''));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      touchRoom(result.value.room.id);
       broadcastRoomState(io, result.value.room);
       ack(cb)({ ok: true, spectatorToken: result.value.token, roomState: toRoomStatePayload(result.value.room) });
     });
@@ -186,6 +210,7 @@ export function registerSocketHandlers(io: Server): void {
     socket.on('room:ready', (payload: { roomId?: string; token?: string; ready?: boolean }, cb?: unknown) => {
       const result = setReady(String(payload?.roomId ?? ''), String(payload?.token ?? ''), Boolean(payload?.ready));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      touchRoom(result.value.id);
       broadcastRoomState(io, result.value);
       ack(cb)({ ok: true });
     });
@@ -195,6 +220,7 @@ export function registerSocketHandlers(io: Server): void {
       const result = startGame(String(payload?.roomId ?? ''), String(payload?.token ?? ''));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       const room = result.value;
+      touchRoom(room.id);
       broadcastRoomState(io, room);
       io.in(roomChannel(room.id)).emit('game:started', { roomId: room.id });
       await broadcastViews(io, room);
@@ -233,11 +259,20 @@ export function registerSocketHandlers(io: Server): void {
       const combinedLog = chained.ok ? [...result.log, ...chained.log] : result.log;
 
       room.game = finalState;
+      touchRoom(room.id);
       await broadcastLog(io, room, combinedLog);
       await broadcastViews(io, room);
       // ack에 요청자 시점의 최신 뷰를 함께 돌려준다 — 브로드캐스트와의 순서 경합 없이
       // "내 액션이 반영된 상태"를 확정적으로 받을 수 있다 (클라이언트 낙관적 갱신 불필요)
       ack(cb)({ ok: true, view: projectView(room.game, resolveViewer(room, String(payload?.token ?? ''))) });
+    });
+
+    // ── 타임아웃 연장 (Keep-Alive) ──
+    socket.on('room:keepAlive', (payload: { roomId?: string }, cb?: unknown) => {
+      const roomId = String(payload?.roomId ?? '');
+      touchRoom(roomId);
+      io.in(roomChannel(roomId)).emit('room:idleWarningClear');
+      ack(cb)({ ok: true });
     });
   });
 }
