@@ -420,3 +420,105 @@
   0%, 100% { transform: translateX(0); }
   50% { transform: translateX(5px); }
 }
+
+/* ── 이벤트 손패 (Event Hand) 카드 디자인 ── */
+.eventHandGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.eventCard {
+  background: var(--bg-panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+}
+
+.eventCard:hover {
+  transform: translateY(-4px) scale(1.02);
+  z-index: 5;
+}
+
+.eventCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.eventCardTitle {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eventCardDesc {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin-bottom: 12px;
+  flex: 1;
+}
+
+.eventCardAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+/* 후보 이벤트 (Indigo) */
+.eventCardCandidate {
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.1);
+}
+.eventCardCandidate::before {
+  background: var(--accent-primary);
+}
+.eventCardCandidate:hover {
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+.eventCardCandidate .eventCardTitle {
+  color: #818cf8; /* Light Indigo */
+}
+
+/* 유권자 이벤트 (Emerald) */
+.eventCardVoter {
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);
+}
+.eventCardVoter::before {
+  background: var(--accent-success);
+}
+.eventCardVoter:hover {
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+.eventCardVoter .eventCardTitle {
+  color: #34d399; /* Light Emerald */
+}
+
+.targetSelectorArea {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}

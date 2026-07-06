@@ -33,41 +33,61 @@ export function EventHand({ state, myPlayerId }: EventHandProps) {
   return (
     <div className={board.section}>
       <h2 className={board.sectionTitle}>
-        내 이벤트 카드 <span className={styles.hint}>(무료, 언제든 가능)</span>
+        내 이벤트 카드 <span className={styles.hint}>(무료, 차례와 무관하게 사용 가능)</span>
       </h2>
-      {hand.map((eventId) => {
-        const card = eventById.get(eventId);
-        const needsTarget = card?.effect.kind === 'candidateVotesDelta';
-        return (
-          <div key={eventId} className={styles.actionRow}>
-            <span className={styles.actionLabel}>
-              {card?.name ?? eventId}
-              <span className={styles.hint}> — {card?.description}</span>
-            </span>
-            {needsTarget && (
-              <select
-                className={styles.select}
-                value={targets[eventId] ?? ''}
-                onChange={(e) => setTargets((prev) => ({ ...prev, [eventId]: e.target.value as CandidateId }))}
-              >
-                <option value="">후보 선택</option>
-                {state.round.candidatesRunning.map((id) => (
-                  <option key={id} value={id}>
-                    {candidateName(id)}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              className={board.button}
-              disabled={busyId === eventId || (needsTarget && !targets[eventId])}
-              onClick={() => handleUse(eventId)}
-            >
-              사용
-            </button>
-          </div>
-        );
-      })}
+      <div className={styles.eventHandGrid}>
+        {hand.map((eventId) => {
+          const card = eventById.get(eventId);
+          if (!card) return null;
+          
+          const isCandidate = card.category === 'candidate';
+          const cardClass = isCandidate ? styles.eventCardCandidate : styles.eventCardVoter;
+          const icon = isCandidate ? '👔' : '👥';
+          
+          const needsTarget = card.effect.kind === 'candidateVotesDelta';
+          const currentTarget = targets[eventId] || '';
+
+          return (
+            <div key={eventId} className={`${styles.eventCard} ${cardClass}`}>
+              <div className={styles.eventCardTitle}>
+                {icon} {card.name}
+              </div>
+              <div className={styles.eventCardDesc}>
+                {card.description}
+              </div>
+              
+              {needsTarget && (
+                <div className={styles.targetSelectorArea}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>대상 후보 선택:</div>
+                  <div className={styles.selectableRow} style={{ marginBottom: '12px', justifyContent: 'center' }}>
+                    {state.round.candidatesRunning.map((id) => (
+                      <div
+                        key={id}
+                        className={`${styles.avatarBadge} ${currentTarget === id ? styles.avatarBadgeActive : ''}`}
+                        onClick={() => setTargets((prev) => ({ ...prev, [eventId]: id }))}
+                        style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto' }}
+                      >
+                        {candidateName(id)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className={styles.eventCardAction}>
+                <button
+                  className={board.button}
+                  disabled={busyId === eventId || (needsTarget && !currentTarget)}
+                  onClick={() => handleUse(eventId)}
+                  style={{ width: '100%', marginTop: needsTarget ? '0' : '12px' }}
+                >
+                  사용하기
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
