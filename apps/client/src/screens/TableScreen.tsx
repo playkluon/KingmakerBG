@@ -34,10 +34,12 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
   const view = useGameStore((s) => s.view);
   const attach = useGameStore((s) => s.attach);
   const sendAction = useGameStore((s) => s.sendAction);
+  const leaveRoom = useGameStore((s) => s.leaveRoom);
   const lastError = useGameStore((s) => s.lastError);
 
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,14 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
     setAdvancing(false);
   }
 
+  // 부록 A-22: 관전자는 좌석이 없어 게임 진행에 영향을 주지 않으므로 진행 중에도 언제든 나갈 수 있다
+  async function handleLeave() {
+    setLeaving(true);
+    const res = await leaveRoom();
+    setLeaving(false);
+    if (res.ok) navigate('/');
+  }
+
   return (
     <main className={styles.page}>
       <EffectToast state={view} />
@@ -99,6 +109,14 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
               {advancing ? '진행 중…' : '진행'}
             </button>
             {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+          </div>
+        )}
+
+        {role === 'spectator' && (
+          <div className={board.section}>
+            <button className={board.buttonGhost} disabled={leaving} onClick={handleLeave}>
+              {leaving ? '나가는 중…' : '관전 그만두기'}
+            </button>
           </div>
         )}
 

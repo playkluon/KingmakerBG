@@ -5,6 +5,7 @@ import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type { GameAction, GameState, PlayerId } from '@kingmakers/engine';
 import {
+  clearRoomTokens,
   loadAnyToken,
   loadMyName,
   saveHostToken,
@@ -68,10 +69,7 @@ interface GameStore {
   /** 마지막 거부/오류 사유 — 화면이 토스트로 보여주고 지운다 */
   lastError: string | null;
 
-  createRoom(
-    name: string,
-    options?: { visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean },
-  ): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
+  createRoom(name: string, options?: { visibility?: RoomVisibility }): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
   joinRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
   /** 관전자로 입장한다 (부록 A-22) — 게임 중인 방에도 언제든 입장할 수 있다 */
   spectateRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
@@ -81,8 +79,27 @@ interface GameStore {
   attach(roomId: string): Promise<{ ok: boolean; role?: Role; reason?: string }>;
   setReady(ready: boolean): Promise<void>;
   startGame(): Promise<void>;
+  /** 방을 나간다 (부록 A-22) — 호스트면 방 전체가 닫히고, 그 외에는 본인만 빠진다 */
+  leaveRoom(): Promise<{ ok: boolean; reason?: string }>;
   sendAction(action: GameAction): Promise<{ ok: boolean; reason?: string }>;
   clearError(): void;
+}
+
+/** 방이 사라졌을 때(호스트 나감 등) 로컬 상태를 초기화하는 공통 로직 */
+function resetRoomState(reason: string | null): void {
+  const { roomId } = useGameStore.getState();
+  if (roomId) clearRoomTokens(roomId);
+  useGameStore.setState({
+    roomId: null,
+    token: null,
+    role: null,
+    isHost: false,
+    myPlayerId: null,
+    myName: null,
+    roomState: null,
+    view: null,
+    lastError: reason,
+  });
 }
 
 let socket: Socket | null = null;
@@ -104,6 +121,8 @@ function getSocket(): Socket {
   socket.on('action:rejected', (payload: { reason?: string }) => {
     useGameStore.setState({ lastError: payload?.reason ?? '요청이 거부되었습니다' });
   });
+  // 호스트가 나가서 방이 닫힘 (부록 A-22) — 남아있던 참가자·관전자 전원이 이 이벤트를 받는다
+  socket.on('room:closed', () => resetRoomState('호스트가 방을 나가 방이 종료되었습니다'));
 
   return socket;
 }
@@ -129,11 +148,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastError: null,
 
   async createRoom(name, options) {
-    const res = await emitAck('room:create', {
-      name,
-      visibility: options?.visibility,
-      hostJoinsAsPlayer: options?.hostJoinsAsPlayer,
-    });
+    const res = await emitAck('room:create', { name, visibility: options?.visibility });
     if (!res.ok) {
       set({ lastError: res.reason ?? '방 생성에 실패했습니다' });
       return { ok: false, reason: res.reason };
@@ -206,6 +221,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!roomId || !token) return;
     const res = await emitAck('room:start', { roomId, token });
     if (!res.ok) set({ lastError: res.reason ?? '게임 시작에 실패했습니다' });
+  },
+
+  async leaveRoom() {
+    const { roomId, token } = get();
+    if (!roomId || !token) return { ok: true };
+    const res = await emitAck('room:leave', { roomId, token });
+    if (!res.ok) {
+      set({ lastError: res.reason ?? '나가기에 실패했습니다' });
+      return { ok: false, reason: res.reason };
+    }
+    resetRoomState(null);
+    return { ok: true };
   },
 
   async sendAction(action) {

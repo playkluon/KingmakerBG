@@ -81,8 +81,6 @@ export function clearRooms(): void {
 export interface CreateRoomOptions {
   /** 공개방은 room:list로 조회되고, 비공개방은 초대 링크로만 입장한다 (부록 A-22). 기본값은 안전한 쪽인 비공개 */
   visibility?: RoomVisibility;
-  /** 호스트도 좌석을 받아 플레이어로 참가할지 (부록 A-22) — true면 hostToken을 그대로 참가자 토큰으로 등록한다 */
-  hostJoinsAsPlayer?: boolean;
 }
 
 /** 방 전체에서 이미 쓰이는 이름인지 확인한다 — 참가자와 관전자를 통틀어 하나의 이름 공간을 쓴다 */
@@ -90,6 +88,11 @@ function isNameTaken(room: Room, name: string): boolean {
   return room.players.some((p) => p.name === name) || room.spectators.some((s) => s.name === name);
 }
 
+/**
+ * 호스트는 항상 좌석을 받는 참가자를 겸한다 (부록 A-22) — 별도 옵션이었으나, 방을 만든 사람이
+ * 구경만 하고 플레이하지 않는 경우가 실제로는 없다고 판단해 선택이 아닌 기본 동작으로 바꿨다.
+ * hostToken을 그대로 참가자 토큰으로 등록해 하나의 토큰이 방 관리 권한과 좌석을 동시에 가진다.
+ */
 export function createRoom(hostName: string, options: CreateRoomOptions = {}): RoomResult<Room> {
   const name = hostName.trim();
   if (!name) return { ok: false, reason: '호스트 이름을 입력하세요' };
@@ -100,7 +103,7 @@ export function createRoom(hostName: string, options: CreateRoomOptions = {}): R
     hostName: name,
     visibility: options.visibility === 'public' ? 'public' : 'private',
     status: 'waiting',
-    players: options.hostJoinsAsPlayer ? [{ token: hostToken, name, ready: false, playerId: null }] : [],
+    players: [{ token: hostToken, name, ready: false, playerId: null }],
     spectators: [],
     game: null,
   };
@@ -171,6 +174,37 @@ export function setReady(roomId: string, token: string, ready: boolean): RoomRes
   if (!player) return { ok: false, reason: '이 방의 참가자가 아닙니다' };
   player.ready = ready;
   return { ok: true, value: room };
+}
+
+/**
+ * 방 나가기 (부록 A-22).
+ * - 관전자는 좌석·진행 상태와 무관하게 언제든 나갈 수 있다 — 게임 결과에 영향이 없기 때문이다.
+ * - 참가자(호스트 포함)는 대기 중(waiting)에만 나갈 수 있다 — 게임이 시작되면 좌석이 GameState에
+ *   고정돼(§21) 엔진에 "탈주" 개념이 없으므로, 중도 이탈 처리는 스킬 12 이후로 미룬다.
+ * - 호스트가 나가면 방 관리자가 사라지므로 방 전체를 닫는다(closed: true) — 호스트가 항상 참가자를
+ *   겸하므로(부록 A-22) 이 검사를 참가자 목록 조회보다 먼저 해야 한다.
+ */
+export function leaveRoom(roomId: string, token: string): RoomResult<{ closed: boolean }> {
+  const room = rooms.get(roomId);
+  if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+
+  const spectatorIndex = room.spectators.findIndex((s) => s.token === token);
+  if (spectatorIndex !== -1) {
+    room.spectators.splice(spectatorIndex, 1);
+    return { ok: true, value: { closed: false } };
+  }
+
+  if (room.status !== 'waiting') return { ok: false, reason: '게임이 시작된 후에는 나갈 수 없습니다' };
+
+  if (token === room.hostToken) {
+    rooms.delete(roomId);
+    return { ok: true, value: { closed: true } };
+  }
+
+  const playerIndex = room.players.findIndex((p) => p.token === token);
+  if (playerIndex === -1) return { ok: false, reason: '이 방에 속해 있지 않습니다' };
+  room.players.splice(playerIndex, 1);
+  return { ok: true, value: { closed: false } };
 }
 
 /**

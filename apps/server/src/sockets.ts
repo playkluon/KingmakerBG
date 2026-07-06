@@ -8,6 +8,7 @@ import {
   createRoom,
   getRoom,
   joinRoom,
+  leaveRoom,
   listPublicRooms,
   setReady,
   spectateRoom,
@@ -109,18 +110,12 @@ function authorizeAction(room: Room, token: string, action: GameAction): string 
 /** 서버의 모든 소켓 이벤트를 등록한다 */
 export function registerSocketHandlers(io: Server): void {
   io.on('connection', (socket: Socket) => {
-    // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 + 호스트 겸직 참가 옵션) ──
-    socket.on(
-      'room:create',
-      (payload: { name?: string; visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean }, cb?: unknown) => {
-        const result = createRoom(String(payload?.name ?? ''), {
-          visibility: payload?.visibility,
-          hostJoinsAsPlayer: Boolean(payload?.hostJoinsAsPlayer),
-        });
-        if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
-        ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
-      },
-    );
+    // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트는 항상 좌석을 겸함) ──
+    socket.on('room:create', (payload: { name?: string; visibility?: RoomVisibility }, cb?: unknown) => {
+      const result = createRoom(String(payload?.name ?? ''), { visibility: payload?.visibility });
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
+    });
 
     // ── 공개방 목록 조회 (부록 A-22) — 특정 방에 붙지 않고도 누구나 호출할 수 있다 ──
     socket.on('room:list', (_payload: unknown, cb?: unknown) => {
@@ -141,6 +136,24 @@ export function registerSocketHandlers(io: Server): void {
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       broadcastRoomState(io, result.value.room);
       ack(cb)({ ok: true, spectatorToken: result.value.token, roomState: toRoomStatePayload(result.value.room) });
+    });
+
+    // ── 방 나가기 (부록 A-22) — 호스트가 나가면 방이 닫히고, 그 외에는 본인만 제거된다 ──
+    socket.on('room:leave', async (payload: { roomId?: string; token?: string }, cb?: unknown) => {
+      const roomId = String(payload?.roomId ?? '');
+      const token = String(payload?.token ?? '');
+      const result = leaveRoom(roomId, token);
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+
+      if (result.value.closed) {
+        // 방 자체가 사라졌으므로 room:state가 아니라 전용 이벤트로 알린다 — 남은 소켓들은 이 이벤트를 받고 홈으로 돌아간다
+        io.in(roomChannel(roomId)).emit('room:closed');
+      } else {
+        const room = getRoom(roomId);
+        if (room) broadcastRoomState(io, room);
+      }
+      await socket.leave(roomChannel(roomId));
+      ack(cb)({ ok: true, closed: result.value.closed });
     });
 
     // ── 소켓을 방에 연결 (첫 입장·새로고침·재접속 공용 — 부록 A-2) ──

@@ -22,6 +22,7 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
   const startGame = useGameStore((s) => s.startGame);
   const joinRoom = useGameStore((s) => s.joinRoom);
   const spectateRoom = useGameStore((s) => s.spectateRoom);
+  const leaveRoom = useGameStore((s) => s.leaveRoom);
   const lastError = useGameStore((s) => s.lastError);
   const clearError = useGameStore((s) => s.clearError);
 
@@ -64,6 +65,14 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
     const res = await spectateRoom(roomId, joinName.trim());
     if (res.ok) await attach(roomId);
     setBusy(false);
+  }
+
+  async function handleLeave() {
+    if (busy) return;
+    setBusy(true);
+    const res = await leaveRoom();
+    setBusy(false);
+    if (res.ok) navigate('/');
   }
 
   async function handleCopy() {
@@ -137,6 +146,9 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
         초대 코드 <span className={styles.code}>{roomId}</span>{' '}
         <button className={board.buttonGhost} onClick={handleCopy}>
           {copied ? '복사됨' : '링크 복사'}
+        </button>{' '}
+        <button className={board.buttonGhost} disabled={busy} onClick={handleLeave}>
+          {isHost ? '방 닫기' : '나가기'}
         </button>
       </p>
 

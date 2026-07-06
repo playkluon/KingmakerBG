@@ -17,7 +17,6 @@ export function HomeScreen() {
 
   const [hostName, setHostName] = useState('');
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
-  const [hostJoinsAsPlayer, setHostJoinsAsPlayer] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,7 +30,7 @@ export function HomeScreen() {
     if (!hostName.trim() || busy) return;
     setBusy(true);
     clearError();
-    const res = await createRoom(hostName.trim(), { visibility, hostJoinsAsPlayer });
+    const res = await createRoom(hostName.trim(), { visibility });
     setBusy(false);
     if (res.ok && res.roomId) navigate(`/room/${res.roomId}`);
   }
@@ -89,14 +88,7 @@ export function HomeScreen() {
               비공개방 (초대 코드로만 입장)
             </label>
           </div>
-          <label className={styles.radioLabel}>
-            <input
-              type="checkbox"
-              checked={hostJoinsAsPlayer}
-              onChange={(e) => setHostJoinsAsPlayer(e.target.checked)}
-            />
-            저도 플레이어로 참가할게요
-          </label>
+          <p className={styles.hint}>호스트도 참가자로 함께 플레이합니다</p>
           <button className={board.button} disabled={!hostName.trim() || busy} onClick={handleCreate}>
             방 만들기
           </button>

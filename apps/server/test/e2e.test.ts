@@ -1,5 +1,5 @@
 // 기반 스킬: skills/server-rooms/SKILL.md
-// M4 서버측 E2E — 실제 Socket.IO 클라이언트 5개(호스트+참가자4)로
+// M4 서버측 E2E — 실제 Socket.IO 클라이언트 4개(호스트는 항상 참가자를 겸함, 부록 A-22)로
 // 방 생성→입장→ready→start→1라운드 완주, 마스킹, 권한, 재접속을 검증한다.
 import type { AddressInfo } from 'node:net';
 import { CANDIDATES } from '@kingmakers/data';
@@ -62,16 +62,22 @@ interface Participant {
   playerId: PlayerId;
 }
 
-/** 방 생성→4명 입장→전원 ready→start까지 진행하고 참가자·호스트 핸들을 돌려준다 */
+/**
+ * 방 생성→4명 입장→전원 ready→start까지 진행하고 참가자·호스트 핸들을 돌려준다.
+ * 부록 A-22: 호스트가 항상 좌석을 겸하므로, MIN_PLAYERS(4명)를 채우려면 호스트 포함 3명만 추가로 입장하면 된다.
+ * 호스트도 `participants`에 포함시켜, 좌석이 무작위 배정되어도 `byPlayerId`로 항상 4자리를 전부 찾을 수 있게 한다.
+ */
 async function setupStartedRoom(): Promise<{ roomId: string; hostToken: string; host: ClientSocket; participants: Participant[] }> {
   const host = await connect();
   const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
   expect(created.ok).toBe(true);
   const { roomId, hostToken } = created;
   await emitAck(host, 'room:attach', { roomId, token: hostToken });
+  const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
+  expect(hostReady.ok).toBe(true);
 
-  const names = ['갑', '을', '병', '정'];
-  const joined: Array<{ socket: ClientSocket; token: string; name: string }> = [];
+  const names = ['갑', '을', '병'];
+  const joined: Array<{ socket: ClientSocket; token: string; name: string }> = [{ socket: host, token: hostToken, name: '호스트' }];
   for (const name of names) {
     const socket = await connect();
     const join = await emitAck<{ playerToken: string }>(socket, 'room:join', { roomId, name });
@@ -79,7 +85,7 @@ async function setupStartedRoom(): Promise<{ roomId: string; hostToken: string; 
     await emitAck(socket, 'room:attach', { roomId, token: join.playerToken });
     joined.push({ socket, token: join.playerToken, name });
   }
-  for (const p of joined) {
+  for (const p of joined.slice(1)) {
     const ready = await emitAck(p.socket, 'room:ready', { roomId, token: p.token, ready: true });
     expect(ready.ok).toBe(true);
   }
@@ -219,8 +225,9 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
 
   it('§20 권한: 타인 좌석 액션·비호스트 시스템 진행·관전자 액션이 전부 거부된다', async () => {
     clearRooms();
-    const { roomId, participants } = await setupStartedRoom();
-    const [pA, pB] = participants;
+    const { roomId, hostToken, participants } = await setupStartedRoom();
+    // 부록 A-22: 호스트가 항상 좌석을 겸하므로, "비호스트" 검증에는 호스트가 아닌 좌석만 써야 한다
+    const [pA, pB] = participants.filter((p) => p.token !== hostToken);
 
     // 타인 좌석의 액션
     const impersonation = await emitAck(pB!.socket, 'game:action', {
@@ -311,43 +318,49 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     }
     expect(view.phase).toBe('campaignActions');
 
-    const proposer = byPlayerId(participants, 'player-0' as PlayerId);
-    const counterparty = byPlayerId(participants, 'player-1' as PlayerId);
-    const outsider = byPlayerId(participants, 'player-2' as PlayerId);
+    // 부록 A-22: 호스트가 항상 좌석을 겸하므로, 이 테스트의 "호스트(table) 시점" 검증이 항상 진짜
+    // 제3자이려면 호스트를 proposer/counterparty가 아닌 쪽으로 고정해야 한다 — 좌석은 무작위 배정되므로
+    // 하드코딩된 player-0/1/2 대신 호스트를 제외한 나머지 3석 중에서 뽑는다.
+    const hostSeat = participants.find((p) => p.token === hostToken)!.playerId;
+    const nonHostSeats = (['player-0', 'player-1', 'player-2', 'player-3'] as PlayerId[]).filter((id) => id !== hostSeat);
+    const proposer = byPlayerId(participants, nonHostSeats[0]!);
+    const counterparty = byPlayerId(participants, nonHostSeats[1]!);
+    const outsider = byPlayerId(participants, nonHostSeats[2]!);
     const promisedCandidate = view.round.candidatesRunning[0]!;
 
     // game:log는 game:view와 별개의 브로드캐스트 채널이다 — projectView(ack의 view 필드)만 검증하면
-    // 이 채널이 필터링 없이 원본 로그를 그대로 내보내는 우회로를 놓친다. 같은 소켓 커넥션에서
-    // game:log가 game:view보다 먼저 나가므로(sockets.ts), outsider의 다음 game:view 도착을 기다리면
-    // 그 사이에 온 game:log도 이번 액션분까지 전부 도착해 있음이 보장된다.
+    // 이 채널이 필터링 없이 원본 로그를 그대로 내보내는 우회로를 놓친다.
+    // 동기화는 "다음 game:view를 기다린다" 같은 수동 브로드캐스트 리스너로 하지 않는다 — 그 방식은
+    // 바로 이전 액션(예: selectPromise/autoSelectPromises의 연쇄 진행)이 남긴 아직 도착하지 않은
+    // broadcast를 "이번 액션의 신호"로 잘못 잡아버릴 수 있어 실제로 flaky했다. 대신 room:attach(요청-응답)를
+    // 쓴다 — 같은 소켓 커넥션에서는 서버가 먼저 보낸 프레임(game:log/game:view)이 나중에 보낸 attach ack보다
+    // 반드시 먼저 도착하므로(순서 보장), attach의 ack가 돌아온 시점이면 그 전에 나간 game:log는 이미 도착해 있다.
     const outsiderLogs = collectLogs(outsider.socket);
     const counterpartyLogs = collectLogs(counterparty.socket);
-    const outsiderSeesNextView = nextView(outsider.socket);
 
     view = await act(roomId, proposer, {
       type: 'proposeSecretPact',
-      actor: 'player-0' as PlayerId,
-      counterparty: 'player-1' as PlayerId,
+      actor: proposer.playerId,
+      counterparty: counterparty.playerId,
       promise: { kind: 'supportCandidate', candidateId: promisedCandidate },
     });
-    await outsiderSeesNextView;
 
     // 당사자(제안자) 시점 — 대기 목록에 보인다
     expect(view.round.pendingSecretPactProposals).toHaveLength(1);
     expect(view.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(true);
 
-    // game:log 브로드캐스트: 상대(당사자)에게는 도착하지만 제3자에게는 항목 자체가 없다
-    expect(counterpartyLogs.some((e) => e.action === 'proposeSecretPact')).toBe(true);
-    expect(outsiderLogs.some((e) => e.action === 'proposeSecretPact')).toBe(false);
-
-    // 상대(수신자) 시점 — 마찬가지로 보인다
+    // 상대(수신자) 시점 — 마찬가지로 보인다. 이 attach가 counterpartyLogs 확인의 동기화 지점이기도 하다.
     const counterpartyAttach = await emitAck<{ view: GameState }>(counterparty.socket, 'room:attach', { roomId, token: counterparty.token });
     expect(counterpartyAttach.view!.round.pendingSecretPactProposals).toHaveLength(1);
 
-    // 제3자(당사자 아닌 참가자) 시점 — 데이터도, 로그도 없다
+    // 제3자(당사자 아닌 참가자) 시점 — 데이터도, 로그도 없다. 마찬가지로 이 attach가 outsiderLogs의 동기화 지점이다.
     const outsiderAttach = await emitAck<{ view: GameState }>(outsider.socket, 'room:attach', { roomId, token: outsider.token });
     expect(outsiderAttach.view!.round.pendingSecretPactProposals).toHaveLength(0);
     expect(outsiderAttach.view!.actionLog.some((e) => e.action === 'proposeSecretPact')).toBe(false);
+
+    // game:log 브로드캐스트: 상대(당사자)에게는 도착하지만 제3자에게는 항목 자체가 없다
+    expect(counterpartyLogs.some((e) => e.action === 'proposeSecretPact')).toBe(true);
+    expect(outsiderLogs.some((e) => e.action === 'proposeSecretPact')).toBe(false);
 
     // 호스트(table) 시점 — 마찬가지로 전부 제거된다
     const hostAttach = await emitAck<{ view: GameState }>(host, 'room:attach', { roomId, token: hostToken });
@@ -360,7 +373,7 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     expect(spectatorAttach.view!.round.pendingSecretPactProposals).toHaveLength(0);
 
     // 수락 이후: activeSecretPacts도 동일하게 당사자 외에는 보이지 않는다
-    view = await act(roomId, counterparty, { type: 'acceptSecretPact', actor: 'player-1' as PlayerId, proposer: 'player-0' as PlayerId });
+    view = await act(roomId, counterparty, { type: 'acceptSecretPact', actor: counterparty.playerId, proposer: proposer.playerId });
     expect(view.round.activeSecretPacts).toHaveLength(1);
     const outsiderAfterAccept = await emitAck<{ view: GameState }>(outsider.socket, 'room:attach', { roomId, token: outsider.token });
     expect(outsiderAfterAccept.view!.round.activeSecretPacts).toHaveLength(0);
@@ -368,14 +381,13 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
   });
 });
 
-describe('부록 A-17: 호스트 겸 참가, 관전자 정원, 공개방 목록', () => {
-  it('호스트가 hostJoinsAsPlayer로 참가하면 좌석을 받고 player 시점 + 시스템 권한을 동시에 갖는다', async () => {
+describe('부록 A-22: 호스트 겸 참가, 관전자 정원, 공개방 목록, 방 나가기', () => {
+  it('호스트는 기본적으로 좌석을 받고 player 시점 + 시스템 권한을 동시에 갖는다', async () => {
     clearRooms();
     const host = await connect();
     const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', {
       name: '호스트',
       visibility: 'public',
-      hostJoinsAsPlayer: true,
     });
     expect(created.ok).toBe(true);
     const { roomId, hostToken } = created;
@@ -457,5 +469,68 @@ describe('부록 A-17: 호스트 겸 참가, 관전자 정원, 공개방 목록'
     expect(list.ok).toBe(true);
     expect(list.rooms.some((r) => r.id === publicRoom.roomId)).toBe(true);
     expect(list.rooms.some((r) => r.hostName === '비공개주최자')).toBe(false);
+  });
+
+  it('대기 중인 참가자(비호스트)는 나갈 수 있고, 방은 그대로 남는다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
+    const { roomId } = created;
+
+    const guest = await connect();
+    const joined = await emitAck<{ playerToken: string; roomState: { players: unknown[] } }>(guest, 'room:join', { roomId, name: '손님' });
+    expect(joined.roomState.players).toHaveLength(2); // 호스트 + 손님
+
+    const left = await emitAck<{ closed: boolean }>(guest, 'room:leave', { roomId, token: joined.playerToken });
+    expect(left.ok).toBe(true);
+    expect(left.closed).toBe(false);
+
+    const afterLeave = await emitAck<{ roomState: { players: unknown[] } }>(host, 'room:attach', { roomId, token: created.hostToken });
+    expect(afterLeave.roomState.players).toHaveLength(1); // 호스트만 남는다
+  });
+
+  it('게임이 시작된 후에는 참가자가 나갈 수 없다', async () => {
+    clearRooms();
+    const { roomId, participants, hostToken } = await setupStartedRoom();
+    const nonHost = participants.find((p) => p.token !== hostToken)!;
+
+    const result = await emitAck(nonHost.socket, 'room:leave', { roomId, token: nonHost.token });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain('시작된 후');
+  });
+
+  it('관전자는 게임이 시작된 후에도 언제든 나갈 수 있다', async () => {
+    clearRooms();
+    const { roomId } = await setupStartedRoom();
+
+    const spectatorSocket = await connect();
+    const spectate = await emitAck<{ spectatorToken: string }>(spectatorSocket, 'room:spectate', { roomId, name: '관전러' });
+    expect(spectate.ok).toBe(true);
+
+    const left = await emitAck<{ closed: boolean }>(spectatorSocket, 'room:leave', { roomId, token: spectate.spectatorToken });
+    expect(left.ok).toBe(true);
+    expect(left.closed).toBe(false);
+  });
+
+  it('호스트가 나가면 방이 닫히고, 남아있던 참가자는 room:closed를 받는다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
+    const { roomId, hostToken } = created;
+
+    const guest = await connect();
+    const joined = await emitAck<{ playerToken: string }>(guest, 'room:join', { roomId, name: '손님' });
+    await emitAck(guest, 'room:attach', { roomId, token: joined.playerToken });
+
+    const guestSeesClosed = new Promise<void>((resolve) => guest.once('room:closed', () => resolve()));
+    const left = await emitAck<{ closed: boolean }>(host, 'room:leave', { roomId, token: hostToken });
+    expect(left.ok).toBe(true);
+    expect(left.closed).toBe(true);
+    await guestSeesClosed;
+
+    // 방이 실제로 사라졌는지 확인 — 재접속 시도가 "존재하지 않는 방"으로 거부되어야 한다
+    const afterClose = await emitAck(guest, 'room:attach', { roomId, token: joined.playerToken });
+    expect(afterClose.ok).toBe(false);
+    expect(afterClose.reason).toContain('존재하지 않는 방');
   });
 });
