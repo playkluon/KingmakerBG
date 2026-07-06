@@ -3,6 +3,7 @@
 import { POLICY_TRACKS, POLICY_TRACK_MAX, POLICY_TRACK_MIN } from '@kingmakers/engine';
 import type { GameState, PolicyPressure, PolicyTrackId } from '@kingmakers/engine';
 import { TRACK_LABELS } from '../../lib/cards';
+import { Tooltip } from '../Tooltip';
 import styles from './board.module.css';
 
 interface PolicyTracksProps {
@@ -13,6 +14,17 @@ const CELLS: readonly number[] = Array.from(
   { length: POLICY_TRACK_MAX - POLICY_TRACK_MIN + 1 },
   (_, i) => POLICY_TRACK_MIN + i,
 );
+
+const getTrackDescription = (track: string) => {
+  switch (track) {
+    case 'economy': return '경제 쟁점: 복지 확충(◀) vs 시장 자율화(▶)\n해당 방향을 지지하는 유권자들의 투표 성향에 직접적인 영향을 미칩니다.';
+    case 'labor': return '노동 쟁점: 노동권 강화(◀) vs 기업 자율(▶)\n해당 방향을 지지하는 유권자들의 투표 성향에 직접적인 영향을 미칩니다.';
+    case 'society': return '사회 쟁점: 시민 자유(◀) vs 사회 질서(▶)\n해당 방향을 지지하는 유권자들의 투표 성향에 직접적인 영향을 미칩니다.';
+    case 'industry': return '산업 쟁점: 환경 우선(◀) vs 성장 우선(▶)\n해당 방향을 지지하는 유권자들의 투표 성향에 직접적인 영향을 미칩니다.';
+    case 'foreign': return '대외 쟁점: 시장 개방(◀) vs 자국 보호(▶)\n해당 방향을 지지하는 유권자들의 투표 성향에 직접적인 영향을 미칩니다.';
+    default: return '정책 트랙입니다.';
+  }
+};
 
 /** 정책 트랙 5개 카드 — table/player/spectator 화면이 공유한다 */
 export function PolicyTracks({ state }: PolicyTracksProps) {
@@ -45,7 +57,9 @@ function PolicyTrackRow({
   const label = TRACK_LABELS[track];
   return (
     <div className={styles.track}>
-      <div className={styles.trackName}>{label.name}</div>
+      <Tooltip content={getTrackDescription(track)}>
+        <div className={styles.trackName}>{label.name} ⓘ</div>
+      </Tooltip>
       <div className={styles.trackCells}>
         {CELLS.map((cell) => (
           <div

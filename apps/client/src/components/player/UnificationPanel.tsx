@@ -38,24 +38,31 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
 
   if (proposal && isResponder) {
     return (
-      <div className={board.section}>
-        <h2 className={board.sectionTitle}>단일화 제안 수신</h2>
-        <p>
-          {candidateName(proposal.leadCandidateId)} 측이 {candidateName(proposal.withdrawCandidateId)}의 사퇴를
-          제안했습니다.
-        </p>
-        <p className={styles.hint}>
-          이전 비율 {Math.round(proposal.ratio * 100)}% · 예상 이전 표 {proposal.transferVotes}
+      <div className={styles.secretPanel}>
+        <h2 className={styles.secretPanelTitle}>단일화 제안 수신</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', margin: '20px 0', background: 'rgba(0,0,0,0.4)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>사퇴 (내 후보)</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-danger)' }}>{candidateName(proposal.withdrawCandidateId)}</div>
+          </div>
+          <div className={styles.unificationArrow}>➡️</div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>흡수 (상대 대표)</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>{candidateName(proposal.leadCandidateId)}</div>
+          </div>
+        </div>
+        <p className={styles.hint} style={{ textAlign: 'center', fontSize: '0.95rem' }}>
+          이전 비율 {Math.round(proposal.ratio * 100)}% · 예상 이전 표 <strong style={{ color: 'var(--text-main)' }}>{proposal.transferVotes}</strong>
         </p>
         {proposal.terms.length > 0 && (
-          <p className={styles.hint}>
-            공개 조건: {proposal.terms.map((t) => (t.kind === 'moneyTransfer' ? `당선 시 자금 ${t.amount} 지급` : t.kind)).join(', ')}{' '}
-            (대표 후보 당선 시에만 자동 이행, 낙선하면 무효)
-          </p>
+          <div style={{ background: 'rgba(236, 72, 153, 0.1)', border: '1px solid var(--accent-secondary)', padding: '12px', borderRadius: '8px', marginTop: '12px', textAlign: 'center' }}>
+            <strong style={{ color: 'var(--accent-secondary)' }}>🤝 공개 조건:</strong> {proposal.terms.map((t) => (t.kind === 'moneyTransfer' ? `당선 시 자금 💰${t.amount} 지급` : t.kind)).join(', ')}<br/>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>(대표 후보 당선 시에만 자동 이행, 낙선하면 무효)</span>
+          </div>
         )}
-        <div className={styles.actionsRow}>
+        <div className={styles.actionsRow} style={{ justifyContent: 'center', marginTop: '20px' }}>
           <button className={board.button} disabled={busy} onClick={() => run({ type: 'acceptUnification', actor: myPlayerId })}>
-            수락
+            제안 수락
           </button>
           <button
             className={board.buttonGhost}
@@ -71,15 +78,15 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
 
   if (proposal) {
     return (
-      <div className={board.section}>
-        <h2 className={board.sectionTitle}>단일화</h2>
-        <p className={styles.hint}>
-          {isProposer
-            ? `${candidateName(proposal.withdrawCandidateId)} 측의 응답을 기다리는 중…`
-            : `${candidateName(proposal.leadCandidateId)} → ${candidateName(proposal.withdrawCandidateId)} 제안에 대한 응답을 기다리는 중…`}
+      <div className={styles.secretPanel}>
+        <h2 className={styles.secretPanelTitle}>단일화 테이블</h2>
+        <p className={styles.hint} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          ⏳ {isProposer
+            ? `${candidateName(proposal.withdrawCandidateId)} 측의 결단을 기다리는 중…`
+            : `${candidateName(proposal.withdrawCandidateId)} ➡️ ${candidateName(proposal.leadCandidateId)} 단일화 협상 진행 중…`}
         </p>
         {isEligible && (
-          <button className={board.buttonGhost} disabled={busy} onClick={() => run({ type: 'skipUnification', actor: myPlayerId })}>
+          <button className={board.buttonGhost} style={{ marginTop: '16px' }} disabled={busy} onClick={() => run({ type: 'skipUnification', actor: myPlayerId })}>
             내 단일화 기회 넘기기
           </button>
         )}
@@ -89,9 +96,11 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
 
   if (!isEligible) {
     return (
-      <div className={board.section}>
-        <h2 className={board.sectionTitle}>단일화</h2>
-        <p className={styles.hint}>다른 브로커의 단일화 진행을 기다리는 중…</p>
+      <div className={styles.secretPanel}>
+        <h2 className={styles.secretPanelTitle}>단일화 테이블</h2>
+        <p className={styles.hint} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          👁️ 다른 브로커들의 단일화 눈치싸움을 지켜보는 중…
+        </p>
       </div>
     );
   }
@@ -99,54 +108,63 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
   const withdrawOptions = round.candidatesRunning.filter((id) => id !== leadCandidateId);
 
   return (
-    <div className={board.section}>
-      <h2 className={board.sectionTitle}>단일화 제안하기</h2>
-      <div className={styles.actionRow}>
+    <div className={styles.secretPanel}>
+      <h2 className={styles.secretPanelTitle}>단일화 제안하기</h2>
+      
+      <div style={{ marginTop: '16px' }}>
         <span className={styles.actionLabel}>대표로 남길 내 후보</span>
-        <select
-          className={styles.select}
-          value={leadCandidateId}
-          onChange={(e) => setLeadCandidateId(e.target.value as CandidateId)}
-        >
-          <option value="">선택</option>
+        <div className={styles.selectableRow}>
           {myCandidates.map((id) => (
-            <option key={id} value={id}>
+            <div
+              key={id}
+              className={`${styles.selectableCard} ${leadCandidateId === id ? styles.selectableCardActive : ''}`}
+              onClick={() => { setLeadCandidateId(id); setWithdrawCandidateId(''); }}
+            >
               {candidateName(id)}
-            </option>
+            </div>
           ))}
-        </select>
+        </div>
       </div>
-      <div className={styles.actionRow}>
+
+      <div style={{ marginTop: '16px' }}>
         <span className={styles.actionLabel}>사퇴를 제안할 후보</span>
-        <select
-          className={styles.select}
-          value={withdrawCandidateId}
-          disabled={!leadCandidateId}
-          onChange={(e) => setWithdrawCandidateId(e.target.value as CandidateId)}
-        >
-          <option value="">선택</option>
-          {withdrawOptions.map((id) => (
-            <option key={id} value={id}>
-              {candidateName(id)}
-            </option>
-          ))}
-        </select>
+        {leadCandidateId ? (
+          <div className={styles.selectableRow}>
+            {withdrawOptions.map((id) => (
+              <div
+                key={id}
+                className={`${styles.selectableCard} ${withdrawCandidateId === id ? styles.selectableCardActive : ''}`}
+                style={{ borderColor: withdrawCandidateId === id ? 'var(--accent-danger)' : undefined }}
+                onClick={() => setWithdrawCandidateId(id)}
+              >
+                {candidateName(id)}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.hint}>대표 후보를 먼저 선택해주세요.</p>
+        )}
       </div>
-      <p className={styles.hint}>이전 비율은 제안 즉시 서버가 계산해 상대에게 보여줍니다.</p>
-      <div className={styles.actionRow}>
+
+      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed rgba(255, 255, 255, 0.1)' }}>
         <span className={styles.actionLabel}>
-          공개 조건(선택) <span className={styles.hint}>— 대표 후보 당선 시에만 자동 지급, 비워두면 조건 없음</span>
+          공개 조건 (옵션) <span className={styles.hint}>— 당선 시 자동 지급</span>
         </span>
-        <input
-          className={styles.select}
-          type="number"
-          min={0}
-          placeholder="당선 시 지급할 자금"
-          value={moneyTerm}
-          onChange={(e) => setMoneyTerm(e.target.value)}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+          <span style={{ fontSize: '1.5rem' }}>💰</span>
+          <input
+            className={styles.input}
+            type="number"
+            min={0}
+            placeholder="자금 수량"
+            value={moneyTerm}
+            onChange={(e) => setMoneyTerm(e.target.value)}
+            style={{ width: '150px' }}
+          />
+        </div>
       </div>
-      <div className={styles.actionsRow}>
+
+      <div className={styles.actionsRow} style={{ marginTop: '24px' }}>
         <button
           className={board.button}
           disabled={busy || !leadCandidateId || !withdrawCandidateId}
@@ -157,10 +175,10 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
             run({ type: 'proposeUnification', actor: myPlayerId, leadCandidateId, withdrawCandidateId, terms });
           }}
         >
-          제안하기
+          제안서 건네기
         </button>
         <button className={board.buttonGhost} disabled={busy} onClick={() => run({ type: 'skipUnification', actor: myPlayerId })}>
-          넘기기
+          지금은 넘기기
         </button>
       </div>
     </div>

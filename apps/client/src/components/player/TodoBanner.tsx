@@ -29,7 +29,10 @@ export function TodoBanner({ state, myPlayerId }: TodoBannerProps) {
 
   return (
     <div className={isMyTurn ? `${styles.banner} ${styles.bannerActive}` : styles.banner}>
-      <div className={styles.bannerTitle}>{isMyTurn ? '지금 할 일' : '대기 중'}</div>
+      <div className={styles.bannerTitle}>
+        {isMyTurn && <span className={styles.pulseDot} />}
+        {isMyTurn ? '내 차례 - 진행 필요' : '대기 중'}
+      </div>
       <div className={styles.bannerBody}>{text}</div>
     </div>
   );

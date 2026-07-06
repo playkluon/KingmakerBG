@@ -1,4 +1,4 @@
-/* 기반 스킬: skills/client-lobby-table/SKILL.md — Home/Lobby 화면 전용 레이아웃 (CSS Modules) */
+/* 기반 스킬: skills/client-lobby-table/SKILL.md — Home/Lobby 화면 전용 레이아웃 (프리미엄 테마) */
 .page {
   min-height: 100vh;
   display: flex;
@@ -6,157 +6,185 @@
   align-items: center;
   padding: 48px 16px;
   gap: 6px;
+  color: var(--text-main);
 }
 
 .title {
-  font-size: 2rem;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
   font-weight: 800;
   margin: 0;
+  color: var(--accent-primary);
+  text-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
 }
 
 .subtitle {
-  color: #6a7284;
-  margin: 0 0 20px;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin: 0 0 24px;
 }
 
 .error {
-  background: #fdecea;
-  color: #b93a2b;
-  border: 1px solid #f2c6c0;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  margin-bottom: 12px;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-danger);
+  border: 1px solid var(--accent-danger);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .panels {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 20px;
   justify-content: center;
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .panel {
-  flex: 1 1 260px;
-  background: #ffffff;
-  border: 1px solid #dcd9d0;
-  border-radius: 10px;
-  padding: 18px 20px;
+  flex: 1 1 300px;
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 12px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .panelTitle {
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   font-weight: 800;
-  margin: 0 0 4px;
-  color: #2e4a78;
+  margin: 0 0 8px;
+  color: var(--accent-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .input {
   font: inherit;
-  padding: 8px 10px;
-  border: 1px solid #cfccc2;
-  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-main);
+  border: var(--glass-border);
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
 
 .hint {
-  font-size: 0.78rem;
-  color: #8a90a0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .code {
   font-family: 'Consolas', 'Menlo', monospace;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  font-size: 1.1rem;
-  background: #f0efe9;
-  border-radius: 6px;
-  padding: 6px 10px;
+  letter-spacing: 0.1em;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--accent-warning);
+  border-radius: 8px;
+  padding: 8px 14px;
   display: inline-block;
+  border: var(--glass-border);
 }
 
 .wide {
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .participantList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .participantRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid #e3e1d8;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: var(--glass-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
 }
 
 .readyBadge {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: #8a90a0;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .readyBadgeOn {
-  color: #2e7d32;
+  color: var(--accent-success);
+  background: rgba(16, 185, 129, 0.15);
 }
 
 .actionsRow {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 /* ── 공개/비공개 선택, 관전/호스트 옵션 (부록 A-22) ── */
 .visibilityRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .radioLabel {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 8px;
+  font-size: 0.9rem;
   cursor: pointer;
+  color: var(--text-main);
 }
 
 .roomListHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .roomListActions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .visibilityBadge {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #2e4a78;
-  background: #eef1f8;
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.15);
   border-radius: 6px;
-  padding: 2px 8px;
-  margin-left: 8px;
+  padding: 3px 10px;
+  margin-left: 10px;
 }
 
 .roleChoiceRow {
   display: flex;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 12px;
+  margin-top: 6px;
 }

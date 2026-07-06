@@ -10,6 +10,9 @@ import { useGameStore } from './store/gameStore';
 import board from './components/board/board.module.css';
 import styles from './App.module.css';
 
+import { useEffect } from 'react';
+import { audio } from './lib/audio';
+
 function IdleWarningModal() {
   const showIdleWarning = useGameStore((s) => s.showIdleWarning);
   const sendKeepAlive = useGameStore((s) => s.sendKeepAlive);
@@ -31,6 +34,42 @@ function IdleWarningModal() {
 
 export default function App() {
   const route = useRoute();
+
+  useEffect(() => {
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // CSS module 클래스명이 난독화/해시화될 수 있으므로 부분 매칭 사용
+      const clickable = target.closest('button, select, a, [class*="pickerCard"], [class*="button"]') as HTMLElement;
+      if (clickable && !clickable.hasAttribute('disabled')) {
+        if (!clickable.dataset.soundHovered) {
+          clickable.dataset.soundHovered = 'true';
+          audio.init();
+          audio.playHover();
+          
+          clickable.addEventListener('mouseleave', () => {
+            delete clickable.dataset.soundHovered;
+          }, { once: true });
+        }
+      }
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      audio.init();
+      const target = e.target as HTMLElement;
+      const clickable = target.closest('button, select, a, [class*="pickerCard"], [class*="button"]');
+      if (clickable && !clickable.hasAttribute('disabled')) {
+        audio.playClick();
+      }
+    };
+
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('click', handleClick);
+
+    return () => {
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('click', handleClick);
+    };
+  }, []);
 
   let content;
   switch (route.screen) {

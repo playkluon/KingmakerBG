@@ -3,6 +3,7 @@
 import { getVoterController } from '@kingmakers/engine';
 import type { GameState } from '@kingmakers/engine';
 import { candidateName, groupLabel, voterById } from '../../lib/cards';
+import { Tooltip } from '../Tooltip';
 import styles from './board.module.css';
 
 interface VoterBoardProps {
@@ -34,7 +35,13 @@ export function VoterBoard({ state }: VoterBoardProps) {
             <div key={id} className={styles.card}>
               <div className={styles.cardName}>{card?.name ?? id}</div>
               <div className={styles.cardMeta}>
-                {card ? groupLabel(card.group) : ''} · 표 가중치 {card?.voteWeight ?? '?'}
+                {card ? (
+                  <Tooltip content={`[${groupLabel(card.group)}] 그룹 유권자\n정책 트랙의 변화에 가장 민감하게 반응하며, 이들의 마음을 얻는 것이 승리의 열쇠입니다.`}>
+                    <span style={{ textDecoration: 'underline dotted', cursor: 'help' }}>
+                      {groupLabel(card.group)}
+                    </span>
+                  </Tooltip>
+                ) : ''} · 표 가중치 {card?.voteWeight ?? '?'}
               </div>
               <div className={styles.cardMeta}>
                 {controllerName ? <span className={styles.badge}>통제: {controllerName}</span> : '통제자 없음'}

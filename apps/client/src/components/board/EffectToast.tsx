@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ActionLogEntry, GameState } from '@kingmakers/engine';
 import { effectFieldLabel, resolveTargetName } from '../../lib/terms';
+import { audio } from '../../lib/audio';
 import styles from './board.module.css';
 
 interface EffectToastProps {
@@ -16,18 +17,38 @@ interface VisibleToast {
 
 const DISMISS_MS = 5000;
 
+/** 텍스트 내 특정 자원/키워드에 이모지 아이콘을 부여하는 헬퍼 함수 */
+function enrichSummary(text: string) {
+  return text
+    .replace(/평판/g, '⭐ 평판')
+    .replace(/(자금|돈)(?!\s*💰)/g, '💰 $1')
+    .replace(/조직력/g, '🤝 조직력')
+    .replace(/영향력/g, '🔥 영향력')
+    .replace(/(승점|VP)/gi, '🏆 $1')
+    .replace(/밀약/g, '📜 밀약')
+    .replace(/배신/g, '🔪 배신')
+    .replace(/정책/g, '🏛️ 정책');
+}
+
 /** effects[] 1건을 "대상: 필드 +값" 형태의 짧은 한국어 구절로 만든다 */
 function describeEffect(state: GameState, effect: ActionLogEntry['effects'][number]): string {
   const targetName = resolveTargetName(state, String(effect.target));
   const fieldLabel = effectFieldLabel(effect.field);
+  
+  const fieldIcon = fieldLabel.includes('평판') ? '⭐' :
+                    fieldLabel.includes('자금') || fieldLabel.includes('돈') ? '💰' :
+                    fieldLabel.includes('영향력') ? '🔥' :
+                    fieldLabel.includes('조직력') ? '🤝' :
+                    fieldLabel.includes('승점') || fieldLabel.includes('VP') ? '🏆' : '✨';
+
   if (effect.delta != null) {
     const sign = effect.delta > 0 ? '+' : '';
-    return `${targetName}: ${fieldLabel} ${sign}${effect.delta}`;
+    return `${targetName}: ${fieldIcon} ${fieldLabel} ${sign}${effect.delta}`;
   }
   if (effect.after != null) {
-    return `${targetName}: ${fieldLabel} → ${effect.after}`;
+    return `${targetName}: ${fieldIcon} ${fieldLabel} → ${effect.after}`;
   }
-  return `${targetName}: ${fieldLabel}`;
+  return `${targetName}: ${fieldIcon} ${fieldLabel}`;
 }
 
 /** 최근 액션 로그를 감지해 잠깐 떴다 사라지는 토스트로 보여준다 — table/player 화면이 공유한다 */
@@ -48,6 +69,9 @@ export function EffectToast({ state }: EffectToastProps) {
     if (fresh.length === 0) return;
     lastSeenSeq.current = latestSeq;
 
+    // 새로운 토스트가 떴을 때 알림음 재생!
+    audio.playNotify();
+
     const additions = fresh.map((entry) => ({ entry, key: entry.seq }));
     setVisible((prev) => [...prev, ...additions]);
     additions.forEach(({ key }) => {
@@ -63,14 +87,21 @@ export function EffectToast({ state }: EffectToastProps) {
     <div className={styles.toastStack}>
       {visible.map(({ entry, key }) => (
         <div key={key} className={styles.toast}>
-          <div className={styles.toastSummary}>{entry.summary}</div>
+          <div className={styles.toastSummary}>{enrichSummary(entry.summary)}</div>
           {entry.effects.length > 0 && (
             <div className={styles.toastEffects}>
-              {entry.effects.map((effect, i) => (
-                <span key={i} className={styles.toastEffect}>
-                  {describeEffect(state, effect)}
-                </span>
-              ))}
+              {entry.effects.map((effect, i) => {
+                let effectClass = styles.toastEffect;
+                if (effect.delta != null) {
+                  if (effect.delta > 0) effectClass += ` ${styles.toastEffectUp}`;
+                  else if (effect.delta < 0) effectClass += ` ${styles.toastEffectDown}`;
+                }
+                return (
+                  <span key={i} className={effectClass}>
+                    {describeEffect(state, effect)}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,13 +1,61 @@
 /* 기반 스킬: skills/setup/SKILL.md */
-/* 전역 초기화 — 화면별 스타일은 CSS Modules로 작성한다 (CLAUDE.md 코딩 규칙) */
+/* 전역 초기화 및 프리미엄 테마 시스템 */
+:root {
+  /* Premium Dark Theme Palette */
+  --bg-base: #0f1115;
+  --bg-panel: rgba(22, 25, 33, 0.55);
+  --bg-panel-hover: rgba(30, 34, 45, 0.75);
+  
+  /* Accents */
+  --accent-primary: #6366f1; /* Indigo */
+  --accent-secondary: #ec4899; /* Pink */
+  --accent-success: #10b981; /* Emerald */
+  --accent-warning: #f59e0b; /* Amber */
+  --accent-danger: #ef4444; /* Red */
+  
+  /* Text */
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  
+  /* Glassmorphism Utilities */
+  --glass-blur: blur(12px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* Fonts */
+  --font-sans: 'Inter', 'Pretendard', sans-serif;
+  --font-display: 'Outfit', 'Pretendard', sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family:
-    'Pretendard Variable', Pretendard, 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-  background: #f7f6f1;
-  color: #232b3a;
+  font-family: var(--font-sans);
+  background-color: var(--bg-base);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.15), transparent 25%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 스크롤바 커스텀 (프리미엄 감성) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-panel-hover);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

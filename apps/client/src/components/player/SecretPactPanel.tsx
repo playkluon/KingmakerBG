@@ -46,15 +46,16 @@ export function SecretPactPanel({ state, myPlayerId }: SecretPactPanelProps) {
   }
 
   return (
-    <div className={board.section}>
-      <h2 className={board.sectionTitle}>
-        비밀 제안 <span className={styles.hint}>(당사자만 볼 수 있음)</span>
+    <div className={styles.secretPanel}>
+      <h2 className={styles.secretPanelTitle}>
+        비밀 밀약 <span className={board.hint}>(당사자만 볼 수 있음)</span>
       </h2>
 
       {incoming.map((p) => (
-        <div key={p.proposer} className={styles.actionRow}>
+        <div key={p.proposer} className={board.section} style={{ border: '1px solid var(--accent-warning)', background: 'rgba(245, 158, 11, 0.05)' }}>
           <span className={styles.actionLabel}>
-            {nameOf(p.proposer)} 님의 제안: {candidateName(p.promise.candidateId)} 지지 약속
+            ✉️ <strong>{nameOf(p.proposer)}</strong> 님의 은밀한 제안:<br/>
+            <span style={{ color: 'var(--accent-warning)' }}>{candidateName(p.promise.candidateId)}</span> 지지 약속
           </span>
           <div className={styles.actionsRow}>
             <button className={board.button} disabled={busy} onClick={() => respond(p.proposer, true)}>
@@ -68,40 +69,51 @@ export function SecretPactPanel({ state, myPlayerId }: SecretPactPanelProps) {
       ))}
 
       {outgoing.map((p) => (
-        <p key={p.counterparty} className={styles.hint}>
-          {nameOf(p.counterparty)} 님에게 보낸 제안 대기 중 ({candidateName(p.promise.candidateId)} 지지 약속)
+        <p key={p.counterparty} className={styles.hint} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          ⏳ {nameOf(p.counterparty)} 님에게 보낸 밀서 대기 중 ({candidateName(p.promise.candidateId)} 지지)
         </p>
       ))}
 
       {myActivePacts.map((p, i) => (
-        <p key={i} className={styles.hint}>
-          {p.proposer === myPlayerId
-            ? `${nameOf(p.counterparty)} 님과 약속: ${candidateName(p.promise.candidateId)}를(을) 지지하기로 함`
+        <p key={i} className={styles.hint} style={{ color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          📜 {p.proposer === myPlayerId
+            ? `${nameOf(p.counterparty)} 님과의 밀약 성사: ${candidateName(p.promise.candidateId)}를(을) 지지하기로 함`
             : `${nameOf(p.proposer)} 님이 ${candidateName(p.promise.candidateId)} 지지를 약속함`}
         </p>
       ))}
 
-      <div className={styles.actionRow}>
-        <span className={styles.actionLabel}>새 제안</span>
-        <select className={styles.select} value={counterparty} onChange={(e) => setCounterparty(e.target.value as PlayerId)}>
-          <option value="">상대 선택</option>
+      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed rgba(255, 255, 255, 0.1)' }}>
+        <span className={styles.actionLabel}>상대 브로커 선택</span>
+        <div className={styles.selectableRow}>
           {otherPlayers.map((p) => (
-            <option key={p.id} value={p.id}>
+            <div
+              key={p.id}
+              className={`${styles.avatarBadge} ${counterparty === p.id ? styles.avatarBadgeActive : ''}`}
+              onClick={() => setCounterparty(p.id)}
+            >
               {p.name}
-            </option>
+            </div>
           ))}
-        </select>
-        <select className={styles.select} value={candidateId} onChange={(e) => setCandidateId(e.target.value as CandidateId)}>
-          <option value="">지지할 후보 선택</option>
+        </div>
+
+        <span className={styles.actionLabel} style={{ marginTop: '16px', display: 'block' }}>내가 지지할 후보</span>
+        <div className={styles.selectableRow}>
           {state.round.candidatesRunning.map((id) => (
-            <option key={id} value={id}>
+            <div
+              key={id}
+              className={`${styles.selectableCard} ${candidateId === id ? styles.selectableCardActive : ''}`}
+              onClick={() => setCandidateId(id)}
+            >
               {candidateName(id)}
-            </option>
+            </div>
           ))}
-        </select>
-        <button className={board.button} disabled={busy || !counterparty || !candidateId} onClick={propose}>
-          제안하기
-        </button>
+        </div>
+        
+        <div className={styles.actionsRow}>
+          <button className={board.button} disabled={busy || !counterparty || !candidateId} onClick={propose}>
+            밀서 보내기
+          </button>
+        </div>
       </div>
     </div>
   );

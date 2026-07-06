@@ -1,4 +1,4 @@
-/* 기반 스킬: skills/client-player/SKILL.md — 개인 화면 전용 컴포넌트 스타일 (CSS Modules) */
+/* 기반 스킬: skills/client-player/SKILL.md — 개인 화면 전용 컴포넌트 스타일 (프리미엄 테마) */
 /* ── 점수 루트 (skills/ux-feedback) ── */
 .scoreRouteList {
   list-style: none;
@@ -6,16 +6,17 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .scoreRouteItem {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 0.82rem;
-  padding: 4px 0;
-  border-bottom: 1px dashed #eeece4;
+  font-size: 0.85rem;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
 }
 
 .scoreRouteItem:last-child {
@@ -23,119 +24,165 @@
 }
 
 .scoreRouteAmount {
+  font-family: var(--font-display);
   font-weight: 800;
-  color: #2e7d32;
+  color: var(--accent-success);
   white-space: nowrap;
 }
 
 .banner {
-  background: #eef0f4;
-  border: 1px solid #cfd4de;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
 }
 
 .bannerActive {
-  background: #fff6e5;
-  border-color: #d8a53d;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-warning);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
 }
 
 .bannerTitle {
-  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #8a6d1f;
-  margin-bottom: 2px;
+  letter-spacing: 0.1em;
+  color: var(--accent-primary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
 }
 
 .bannerActive .bannerTitle {
-  color: #96793b;
+  color: var(--accent-warning);
+}
+
+.pulseDot {
+  width: 10px;
+  height: 10px;
+  background-color: var(--accent-warning);
+  border-radius: 50%;
+  animation: playerPulse 1.5s infinite;
+}
+
+@keyframes playerPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.bannerActive .bannerTitle {
+  color: var(--accent-warning);
 }
 
 .bannerBody {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #232b3a;
+  color: var(--text-main);
 }
 
 /* ── 자원 ── */
 .resourceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .resourceItem {
-  border: 1px solid #e3e1d8;
-  border-radius: 6px;
-  padding: 6px 10px;
-  background: #ffffff;
+  background: rgba(0, 0, 0, 0.3);
+  border: var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 14px;
   text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.resourceItem:hover {
+  transform: translateY(-2px);
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .resourceLabel {
-  font-size: 0.68rem;
-  color: #8a90a0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
 }
 
 .resourceValue {
-  font-size: 1.1rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
   font-weight: 800;
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
 
 .resourceDeltaUp {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: #2e7d32;
-  margin-left: 2px;
+  color: var(--accent-success);
+  margin-left: 4px;
 }
 
 .resourceDeltaDown {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: #b93a2b;
-  margin-left: 2px;
+  color: var(--accent-danger);
+  margin-left: 4px;
 }
 
 /* ── 비밀 의제 ── */
 .agendaBox {
-  border: 1px dashed #96793b;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  background: #fdfaf2;
+  border: 1px dashed var(--accent-warning);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: rgba(245, 158, 11, 0.05);
+  color: var(--text-main);
+  transition: all 0.3s ease;
 }
 
 .agendaMet {
   border-style: solid;
-  background: #f2f8f0;
-  border-color: #2e7d32;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--accent-success);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
 }
 
 .agendaTitle {
-  font-size: 0.68rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #96793b;
+  letter-spacing: 0.1em;
+  color: var(--accent-warning);
+  text-transform: uppercase;
+}
+
+.agendaMet .agendaTitle {
+  color: var(--accent-success);
 }
 
 .agendaName {
   font-weight: 800;
-  font-size: 0.95rem;
-  margin: 2px 0;
+  font-size: 1.05rem;
+  margin: 4px 0;
 }
 
 /* ── 액션 행 ── */
 .actionRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 6px 0;
-  border-bottom: 1px dashed #eeece4;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
 .actionRow:last-child {
@@ -143,91 +190,233 @@
 }
 
 .actionLabel {
-  flex: 1 1 140px;
-  font-size: 0.85rem;
+  flex: 1 1 150px;
+  font-size: 0.9rem;
   font-weight: 700;
+  color: var(--text-main);
 }
 
 .actionsRow {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .select {
   font: inherit;
-  padding: 6px 8px;
-  border: 1px solid #cfccc2;
-  border-radius: 6px;
-  min-width: 140px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-main);
+  border: var(--glass-border);
+  border-radius: 8px;
+  min-width: 160px;
+  outline: none;
+}
+
+.select:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+.select option {
+  background: var(--bg-base);
+  color: var(--text-main);
 }
 
 .hint {
-  font-size: 0.78rem;
-  color: #8a90a0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* ── 선택 카드(공약/당선 효과) ── */
 .pickerGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .pickerCard {
   font: inherit;
   text-align: left;
-  border: 1px solid #cfccc2;
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #ffffff;
+  border: var(--glass-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(20, 24, 34, 0.6);
+  color: var(--text-main);
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .pickerCard:hover:not(:disabled) {
-  border-color: #2e4a78;
+  border-color: var(--accent-primary);
+  background: rgba(30, 34, 45, 0.8);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
 }
 
 .pickerCard:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  filter: grayscale(50%);
 }
 
 .pickerCardTitle {
+  font-family: var(--font-display);
   font-weight: 800;
-  margin-bottom: 3px;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+  color: var(--accent-secondary);
 }
 
 /* ── 입찰 스텝퍼 ── */
 .stepperList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px 0;
+  gap: 6px;
+  margin: 10px 0;
 }
 
 .stepperRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: var(--glass-border);
 }
 
 .stepperLabel {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
+  color: var(--text-main);
 }
 
 .stepperControls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .stepperValue {
-  min-width: 24px;
+  min-width: 30px;
   text-align: center;
+  font-family: var(--font-display);
   font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--accent-primary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── 협상 & 밀약 전용 패널 (밀실 테마) ── */
+.secretPanel {
+  background: linear-gradient(145deg, rgba(30, 20, 25, 0.8) 0%, rgba(20, 15, 20, 0.95) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(239, 68, 68, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(16px);
+}
+
+.secretPanelTitle {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secretPanelTitle::before {
+  content: '📜';
+  font-size: 1.4rem;
+}
+
+/* ── 선택형 아바타/후보 카드 ── */
+.selectableRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.avatarBadge {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avatarBadge::before {
+  content: '👤';
+  font-size: 1.1rem;
+}
+
+.avatarBadge:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  transform: translateY(-2px);
+}
+
+.avatarBadgeActive {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-primary);
+  color: var(--text-main);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+.selectableCard {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  min-width: 140px;
+}
+
+.selectableCard:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+  color: var(--text-main);
+}
+
+.selectableCardActive {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-warning);
+  color: var(--accent-warning);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  transform: translateY(-2px);
+}
+
+.unificationArrow {
+  font-size: 1.5rem;
+  color: var(--accent-secondary);
+  animation: floatArrow 2s infinite ease-in-out;
+}
+
+@keyframes floatArrow {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
 }
