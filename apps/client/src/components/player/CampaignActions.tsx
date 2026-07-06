@@ -60,7 +60,7 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
   }
 
   return (
-    <div className={board.section}>
+    <div className={`${board.section} ${board.rainbowBorderActive}`}>
       <h2 className={board.sectionTitle}>
         캠페인 액션 — 남은 횟수 {remaining}/{CAMPAIGN_ACTIONS_PER_PLAYER}
       </h2>

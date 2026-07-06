@@ -20,6 +20,41 @@
   text-transform: uppercase;
 }
 
+/* ── 빛나는 무지개 테두리 (활성 액션 강조용) ── */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.rainbowBorderActive {
+  position: relative;
+}
+.rainbowBorderActive::before {
+  content: "";
+  position: absolute;
+  inset: -3px; /* 테두리 두께만큼 바깥으로 확장 */
+  border-radius: 15px; /* section의 12px + 3px */
+  padding: 3px; /* 테두리 두께 */
+  background: conic-gradient(
+    from var(--angle),
+    #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: rotateAngle 3s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+@keyframes rotateAngle {
+  to {
+    --angle: 360deg;
+  }
+}
+
 /* ── 페이즈 헤더 (프리미엄 턴 인디케이터) ── */
 .phaseHeader {
   display: flex;
