@@ -27,7 +27,7 @@ export interface RoomStatePayload {
   maxPlayers: number;
   minPlayers: number;
   maxSpectators: number;
-  players: Array<{ name: string; ready: boolean; playerId: PlayerId | null }>;
+  players: Array<{ name: string; ready: boolean; isAi: boolean; playerId: PlayerId | null }>;
   spectators: Array<{ name: string }>;
   canStart: boolean;
 }
@@ -70,7 +70,7 @@ interface GameStore {
 
   createRoom(
     name: string,
-    options?: { visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean },
+    options?: { visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean; aiPlayerCount?: number },
   ): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
   joinRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
   /** 관전자로 입장한다 (부록 A-22) — 게임 중인 방에도 언제든 입장할 수 있다 */
@@ -80,6 +80,8 @@ interface GameStore {
   /** 방에 소켓을 붙인다 (첫 입장·새로고침·재접속 공용) */
   attach(roomId: string): Promise<{ ok: boolean; role?: Role; reason?: string }>;
   setReady(ready: boolean): Promise<void>;
+  addAiPlayer(): Promise<void>;
+  removeAiPlayer(name?: string): Promise<void>;
   startGame(): Promise<void>;
   sendAction(action: GameAction): Promise<{ ok: boolean; reason?: string }>;
   clearError(): void;
@@ -133,6 +135,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       name,
       visibility: options?.visibility,
       hostJoinsAsPlayer: options?.hostJoinsAsPlayer,
+      aiPlayerCount: options?.aiPlayerCount ?? 0,
     });
     if (!res.ok) {
       set({ lastError: res.reason ?? '방 생성에 실패했습니다' });
@@ -199,6 +202,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!roomId || !token) return;
     const res = await emitAck('room:ready', { roomId, token, ready });
     if (!res.ok) set({ lastError: res.reason ?? '준비 상태 변경에 실패했습니다' });
+  },
+
+  async addAiPlayer() {
+    const { roomId, token } = get();
+    if (!roomId || !token) return;
+    const res = await emitAck('room:add-ai', { roomId, token });
+    if (!res.ok) {
+      set({ lastError: res.reason ?? 'AI 참가자 추가에 실패했습니다' });
+      return;
+    }
+    if (res.roomState) set({ roomState: res.roomState as RoomStatePayload, lastError: null });
+  },
+
+  async removeAiPlayer(name) {
+    const { roomId, token } = get();
+    if (!roomId || !token) return;
+    const res = await emitAck('room:remove-ai', { roomId, token, name });
+    if (!res.ok) {
+      set({ lastError: res.reason ?? 'AI 참가자 제거에 실패했습니다' });
+      return;
+    }
+    if (res.roomState) set({ roomState: res.roomState as RoomStatePayload, lastError: null });
   },
 
   async startGame() {

@@ -18,6 +18,7 @@ export function HomeScreen() {
   const [hostName, setHostName] = useState('');
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [hostJoinsAsPlayer, setHostJoinsAsPlayer] = useState(false);
+  const [aiPlayerCount, setAiPlayerCount] = useState(0);
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export function HomeScreen() {
     if (!hostName.trim() || busy) return;
     setBusy(true);
     clearError();
-    const res = await createRoom(hostName.trim(), { visibility, hostJoinsAsPlayer });
+    const res = await createRoom(hostName.trim(), { visibility, hostJoinsAsPlayer, aiPlayerCount });
     setBusy(false);
     if (res.ok && res.roomId) navigate(`/room/${res.roomId}`);
   }
@@ -97,6 +98,20 @@ export function HomeScreen() {
             />
             저도 플레이어로 참가할게요
           </label>
+          <label className={styles.fieldLabel}>
+            AI 참가자
+            <select
+              className={styles.select}
+              value={aiPlayerCount}
+              onChange={(e) => setAiPlayerCount(Number(e.target.value))}
+            >
+              {Array.from({ length: hostJoinsAsPlayer ? 7 : 8 }, (_, count) => (
+                <option key={count} value={count}>
+                  {count}명
+                </option>
+              ))}
+            </select>
+          </label>
           <button className={board.button} disabled={!hostName.trim() || busy} onClick={handleCreate}>
             방 만들기
           </button>
@@ -140,8 +155,7 @@ export function HomeScreen() {
           {publicRooms.map((room) => (
             <div key={room.id} className={styles.participantRow}>
               <span>
-                {room.hostName}님의 방 · 인원 {room.playerCount}/{room.maxPlayers} · 관전{' '}
-                {room.spectatorCount}/{room.maxSpectators}
+                {room.hostName}님의 방 · 인원 {room.playerCount}/{room.maxPlayers} · 관전 {room.spectatorCount}/{room.maxSpectators}
               </span>
               <span className={styles.roomListActions}>
                 <span className={room.status === 'waiting' ? styles.hint : styles.readyBadgeOn}>

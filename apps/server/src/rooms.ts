@@ -10,6 +10,8 @@ export interface RoomPlayer {
   token: string;
   name: string;
   ready: boolean;
+  /** 서버가 자동으로 행동하는 참가자 슬롯 (부록 A-23). 사람 토큰으로 조작할 수 없다. */
+  isAi: boolean;
   /** 게임 시작 시 랜덤 좌석 배정으로 확정 (§21) */
   playerId: PlayerId | null;
 }
@@ -83,6 +85,8 @@ export interface CreateRoomOptions {
   visibility?: RoomVisibility;
   /** 호스트도 좌석을 받아 플레이어로 참가할지 (부록 A-22) — true면 hostToken을 그대로 참가자 토큰으로 등록한다 */
   hostJoinsAsPlayer?: boolean;
+  /** 방 생성 시 미리 넣을 AI 참가자 수 (부록 A-23). AI는 자동 준비 상태다. */
+  aiPlayerCount?: number;
 }
 
 /** 방 전체에서 이미 쓰이는 이름인지 확인한다 — 참가자와 관전자를 통틀어 하나의 이름 공간을 쓴다 */
@@ -94,16 +98,24 @@ export function createRoom(hostName: string, options: CreateRoomOptions = {}): R
   const name = hostName.trim();
   if (!name) return { ok: false, reason: '호스트 이름을 입력하세요' };
   const hostToken = randomUUID();
+  const aiPlayerCount = normalizeAiPlayerCount(options.aiPlayerCount);
+  const initialPlayers: RoomPlayer[] = options.hostJoinsAsPlayer ? [{ token: hostToken, name, ready: false, isAi: false, playerId: null }] : [];
+  if (initialPlayers.length + aiPlayerCount > MAX_PLAYERS) {
+    return { ok: false, reason: `참가자 정원(${MAX_PLAYERS}명)을 초과했습니다` };
+  }
   const room: Room = {
     id: newRoomId(),
     hostToken,
     hostName: name,
     visibility: options.visibility === 'public' ? 'public' : 'private',
     status: 'waiting',
-    players: options.hostJoinsAsPlayer ? [{ token: hostToken, name, ready: false, playerId: null }] : [],
+    players: initialPlayers,
     spectators: [],
     game: null,
   };
+  for (let i = 0; i < aiPlayerCount; i += 1) {
+    room.players.push(newAiPlayer(room));
+  }
   rooms.set(room.id, room);
   return { ok: true, value: room };
 }
@@ -117,9 +129,56 @@ export function joinRoom(roomId: string, playerName: string): RoomResult<{ room:
   if (!name) return { ok: false, reason: '이름을 입력하세요' };
   if (isNameTaken(room, name)) return { ok: false, reason: '이미 사용 중인 이름입니다' };
 
-  const player: RoomPlayer = { token: randomUUID(), name, ready: false, playerId: null };
+  const player: RoomPlayer = { token: randomUUID(), name, ready: false, isAi: false, playerId: null };
   room.players.push(player);
   return { ok: true, value: { room, token: player.token } };
+}
+
+function normalizeAiPlayerCount(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.min(MAX_PLAYERS, Math.floor(parsed)));
+}
+
+function nextAiName(room: Room): string {
+  for (let i = 1; i <= MAX_PLAYERS; i += 1) {
+    const name = `AI ${i}`;
+    if (!isNameTaken(room, name)) return name;
+  }
+  return `AI ${randomUUID().slice(0, 4)}`;
+}
+
+function newAiPlayer(room: Room): RoomPlayer {
+  return { token: `ai-${randomUUID()}`, name: nextAiName(room), ready: true, isAi: true, playerId: null };
+}
+
+export function addAiPlayer(roomId: string, token: string): RoomResult<Room> {
+  const room = rooms.get(roomId);
+  if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+  if (token !== room.hostToken) return { ok: false, reason: 'AI 참가자 추가는 호스트만 할 수 있습니다' };
+  if (room.status !== 'waiting') return { ok: false, reason: '게임 시작 후에는 AI 참가자를 추가할 수 없습니다' };
+  if (room.players.length >= MAX_PLAYERS) return { ok: false, reason: `정원(${MAX_PLAYERS}명)이 가득 찼습니다` };
+  room.players.push(newAiPlayer(room));
+  return { ok: true, value: room };
+}
+
+export function removeAiPlayer(roomId: string, token: string, aiName?: string): RoomResult<Room> {
+  const room = rooms.get(roomId);
+  if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+  if (token !== room.hostToken) return { ok: false, reason: 'AI 참가자 제거는 호스트만 할 수 있습니다' };
+  if (room.status !== 'waiting') return { ok: false, reason: '게임 시작 후에는 AI 참가자를 제거할 수 없습니다' };
+  const targetIndex =
+    aiName && aiName.trim()
+      ? room.players.findIndex((p) => p.isAi && p.name === aiName.trim())
+      : (() => {
+          for (let i = room.players.length - 1; i >= 0; i -= 1) {
+            if (room.players[i]?.isAi) return i;
+          }
+          return -1;
+        })();
+  if (targetIndex < 0) return { ok: false, reason: '제거할 AI 참가자가 없습니다' };
+  room.players.splice(targetIndex, 1);
+  return { ok: true, value: room };
 }
 
 /**
@@ -220,7 +279,7 @@ export function toRoomStatePayload(room: Room) {
     maxPlayers: MAX_PLAYERS,
     minPlayers: MIN_PLAYERS,
     maxSpectators: MAX_SPECTATORS,
-    players: room.players.map((p) => ({ name: p.name, ready: p.ready, playerId: p.playerId })),
+    players: room.players.map((p) => ({ name: p.name, ready: p.ready, isAi: p.isAi, playerId: p.playerId })),
     spectators: room.spectators.map((s) => ({ name: s.name })),
     canStart:
       room.status === 'waiting' &&
