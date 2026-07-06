@@ -63,6 +63,14 @@
   border-radius: 6px;
 }
 
+.select {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid #cfccc2;
+  border-radius: 6px;
+  background: #fff;
+}
+
 .hint {
   font-size: 0.78rem;
   color: #8a90a0;
@@ -94,10 +102,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   border: 1px solid #e3e1d8;
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 0.9rem;
+  gap: 10px;
+}
+
+.participantName,
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .readyBadge {
@@ -110,8 +127,19 @@
   color: #2e7d32;
 }
 
+.aiBadge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #6f4d00;
+  background: #fff3c4;
+  border: 1px solid #e3c567;
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
 .actionsRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-top: 6px;
@@ -130,6 +158,14 @@
   gap: 6px;
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.fieldLabel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
 }
 
 .roomListHeader {
@@ -157,6 +193,7 @@
 
 .roleChoiceRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 4px;
 }

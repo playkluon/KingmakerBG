@@ -3,10 +3,11 @@
 // 방 생성→입장→ready→start→1라운드 완주, 마스킹, 권한, 재접속을 검증한다.
 import type { AddressInfo } from 'node:net';
 import { CANDIDATES } from '@kingmakers/data';
+import { getPendingDecision } from '@kingmakers/engine';
 import type { ActionLogEntry, GameAction, GameState, PlayerId } from '@kingmakers/engine';
 import { io as connectClient, type Socket as ClientSocket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { clearRooms } from '../src/rooms';
+import { clearRooms, getRoom } from '../src/rooms';
 import { createGameServer, type GameServer } from '../src/server';
 
 let server: GameServer;
@@ -457,5 +458,79 @@ describe('부록 A-17: 호스트 겸 참가, 관전자 정원, 공개방 목록'
     expect(list.ok).toBe(true);
     expect(list.rooms.some((r) => r.id === publicRoom.roomId)).toBe(true);
     expect(list.rooms.some((r) => r.hostName === '비공개주최자')).toBe(false);
+  });
+});
+
+describe('부록 A-23: AI 참가자 옵션', () => {
+  it('방 생성 시 AI 참가자를 미리 넣고, 호스트가 부족한 인원을 AI로 채워 바로 시작할 수 있다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', {
+      name: '호스트',
+      hostJoinsAsPlayer: true,
+      aiPlayerCount: 3,
+    });
+    expect(created.ok).toBe(true);
+    const { roomId, hostToken } = created;
+    await emitAck(host, 'room:attach', { roomId, token: hostToken });
+
+    const roomBeforeStart = getRoom(roomId)!;
+    expect(roomBeforeStart.players).toHaveLength(4);
+    expect(roomBeforeStart.players.filter((p) => p.isAi)).toHaveLength(3);
+    expect(roomBeforeStart.players.filter((p) => p.isAi).every((p) => p.ready)).toBe(true);
+
+    const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
+    expect(hostReady.ok).toBe(true);
+
+    const hostView = nextView(host);
+    const started = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(started.ok).toBe(true);
+    await hostView;
+
+    const roomAfterStart = getRoom(roomId)!;
+    const aiPlayerIds = roomAfterStart.players.filter((p) => p.isAi).map((p) => p.playerId!);
+    expect(aiPlayerIds).toHaveLength(3);
+    for (const aiPlayerId of aiPlayerIds) {
+      expect(roomAfterStart.game!.round.bids[aiPlayerId]?.confirmed).toBe(true);
+    }
+
+    const hostAttach = await emitAck<{ myPlayerId: PlayerId | null; view: GameState }>(host, 'room:attach', { roomId, token: hostToken });
+    expect(hostAttach.myPlayerId).not.toBeNull();
+    const view = await act(roomId, { socket: host, token: hostToken }, { type: 'confirmAuctionBids', actor: hostAttach.myPlayerId! });
+    expect(view.phase).not.toBe('auctionBidding');
+
+    const pending = getPendingDecision(getRoom(roomId)!.game!);
+    expect(pending?.actors.some((actor) => aiPlayerIds.includes(actor))).toBe(false);
+  });
+
+  it('호스트는 대기실에서 AI 참가자를 추가/제거할 수 있고, 비호스트는 조작할 수 없다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
+    expect(created.ok).toBe(true);
+    const { roomId, hostToken } = created;
+
+    const add = await emitAck<{ roomState: { players: Array<{ name: string; isAi: boolean; ready: boolean }> } }>(host, 'room:add-ai', {
+      roomId,
+      token: hostToken,
+    });
+    expect(add.ok).toBe(true);
+    expect(add.roomState.players).toHaveLength(1);
+    expect(add.roomState.players[0]).toMatchObject({ name: 'AI 1', isAi: true, ready: true });
+
+    const human = await connect();
+    const joined = await emitAck<{ playerToken: string }>(human, 'room:join', { roomId, name: '사람' });
+    expect(joined.ok).toBe(true);
+    const rejected = await emitAck(human, 'room:add-ai', { roomId, token: joined.playerToken });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.reason).toContain('호스트');
+
+    const remove = await emitAck<{ roomState: { players: Array<{ name: string; isAi: boolean }> } }>(host, 'room:remove-ai', {
+      roomId,
+      token: hostToken,
+      name: 'AI 1',
+    });
+    expect(remove.ok).toBe(true);
+    expect(remove.roomState.players.some((p) => p.isAi)).toBe(false);
   });
 });

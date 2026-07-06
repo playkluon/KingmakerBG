@@ -22,6 +22,8 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
   const startGame = useGameStore((s) => s.startGame);
   const joinRoom = useGameStore((s) => s.joinRoom);
   const spectateRoom = useGameStore((s) => s.spectateRoom);
+  const addAiPlayer = useGameStore((s) => s.addAiPlayer);
+  const removeAiPlayer = useGameStore((s) => s.removeAiPlayer);
   const lastError = useGameStore((s) => s.lastError);
   const clearError = useGameStore((s) => s.clearError);
 
@@ -126,6 +128,8 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
 
   const me = roomState.players.find((p) => p.name === myName) ?? null;
   const isRegisteredSpectator = role === 'spectator' && !!myName;
+  const aiPlayers = roomState.players.filter((p) => p.isAi);
+  const waiting = roomState.status === 'waiting';
 
   return (
     <main className={styles.page}>
@@ -150,15 +154,37 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
           {roomState.players.length === 0 && <p className={styles.hint}>아직 참가자가 없습니다</p>}
           {roomState.players.map((p) => (
             <div key={p.name} className={styles.participantRow}>
-              <span>{p.name}</span>
-              <span className={p.ready ? `${styles.readyBadge} ${styles.readyBadgeOn}` : styles.readyBadge}>
-                {p.ready ? '준비 완료' : '준비 중'}
+              <span className={styles.participantName}>
+                {p.name}
+                {p.isAi && <span className={styles.aiBadge}>AI</span>}
+              </span>
+              <span className={styles.rowActions}>
+                <span className={p.ready ? `${styles.readyBadge} ${styles.readyBadgeOn}` : styles.readyBadge}>
+                  {p.ready ? '준비 완료' : '준비 중'}
+                </span>
+                {isHost && waiting && p.isAi && (
+                  <button className={board.buttonGhost} onClick={() => removeAiPlayer(p.name)}>
+                    제거
+                  </button>
+                )}
               </span>
             </div>
           ))}
         </div>
 
         <div className={styles.actionsRow}>
+          {isHost && waiting && (
+            <>
+              <button className={board.buttonGhost} disabled={roomState.players.length >= roomState.maxPlayers} onClick={() => addAiPlayer()}>
+                AI 참가자 추가
+              </button>
+              {aiPlayers.length > 0 && (
+                <button className={board.buttonGhost} onClick={() => removeAiPlayer()}>
+                  AI 1명 제거
+                </button>
+              )}
+            </>
+          )}
           {me && (
             <button className={board.button} onClick={() => setReady(!(me?.ready ?? false))}>
               {me.ready ? '준비 취소' : '준비 완료'}
