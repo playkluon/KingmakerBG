@@ -231,3 +231,107 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
+
+@media (max-width: 720px) {
+  .banner {
+    border-radius: 7px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+
+  .bannerBody {
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+
+  .resourceGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .resourceItem {
+    min-width: 0;
+    padding: 5px 4px;
+  }
+
+  .resourceLabel {
+    font-size: 0.62rem;
+  }
+
+  .resourceValue {
+    font-size: 0.96rem;
+  }
+
+  .resourceDeltaUp,
+  .resourceDeltaDown {
+    display: block;
+    margin-left: 0;
+    font-size: 0.62rem;
+  }
+
+  .agendaBox {
+    border-radius: 7px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+
+  .actionRow {
+    gap: 6px;
+    padding: 7px 0;
+  }
+
+  .actionLabel {
+    flex: 1 1 100%;
+    font-size: 0.82rem;
+  }
+
+  .actionsRow {
+    flex-wrap: wrap;
+  }
+
+  .select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pickerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pickerCard {
+    border-radius: 7px;
+    padding: 9px 10px;
+  }
+
+  .stepperList {
+    gap: 6px;
+  }
+
+  .stepperRow {
+    align-items: center;
+  }
+
+  .stepperLabel {
+    min-width: 0;
+  }
+
+  .stepperControls {
+    flex: 0 0 auto;
+  }
+
+  .stepperControls button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .scoreRouteItem {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .resourceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
