@@ -36,7 +36,7 @@ export function loadSpectatorToken(roomId: string): string | null {
 
 /**
  * 이 방에서 내가 쓸 토큰 — 호스트 토큰 우선.
- * 부록 A-22: 호스트는 항상 hostToken을 참가자 토큰으로도 겸용하므로 하나만 저장돼 있어도 충분하다.
+ * 부록 A-22: 호스트가 참가자를 겸하는 방은 hostToken을 그대로 참가자 토큰으로도 쓰므로 하나만 저장돼 있어도 충분하다.
  */
 export function loadAnyToken(roomId: string): string | null {
   return loadHostToken(roomId) ?? loadPlayerToken(roomId) ?? loadSpectatorToken(roomId);

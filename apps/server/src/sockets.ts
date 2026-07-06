@@ -5,11 +5,13 @@ import type { ActionLogEntry, GameAction } from '@kingmakers/engine';
 import type { Server, Socket } from 'socket.io';
 import {
   CATALOG,
+  addAiPlayer,
   createRoom,
   getRoom,
   joinRoom,
   leaveRoom,
   listPublicRooms,
+  removeAiPlayer,
   setReady,
   spectateRoom,
   startGame,
@@ -20,6 +22,7 @@ import {
   type Room,
   type RoomVisibility,
 } from './rooms';
+import { runAiTurns } from './aiPlayers';
 import { filterActionLog, projectView, type Viewer } from './views';
 
 /**
@@ -134,17 +137,31 @@ export function registerSocketHandlers(io: Server): void {
   }, CHECK_INTERVAL);
 
   io.on('connection', (socket: Socket) => {
-    // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트는 항상 좌석을 겸함) ──
-    socket.on('room:create', (payload: { name?: string; visibility?: RoomVisibility; allowSpectators?: boolean; customRoomId?: string }, cb?: unknown) => {
-      const result = createRoom(String(payload?.name ?? ''), { 
-        visibility: payload?.visibility,
-        allowSpectators: payload?.allowSpectators,
-        customRoomId: payload?.customRoomId
-      });
-      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
-      ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
-    });
-
+    // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트 참가/AI 등 추가) ──
+    socket.on(
+      'room:create',
+      (
+        payload: {
+          name?: string;
+          visibility?: RoomVisibility;
+          allowSpectators?: boolean;
+          customRoomId?: string;
+          hostJoinsAsPlayer?: boolean;
+          aiPlayerCount?: number;
+        },
+        cb?: unknown,
+      ) => {
+        const result = createRoom(String(payload?.name ?? ''), {
+          visibility: payload?.visibility,
+          allowSpectators: payload?.allowSpectators,
+          customRoomId: payload?.customRoomId,
+          hostJoinsAsPlayer: payload?.hostJoinsAsPlayer,
+          aiPlayerCount: Number(payload?.aiPlayerCount ?? 0),
+        });
+        if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+        ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
+      },
+    );
     // ── 공개방 목록 조회 (부록 A-22) — 특정 방에 붙지 않고도 누구나 호출할 수 있다 ──
     socket.on('room:list', (_payload: unknown, cb?: unknown) => {
       ack(cb)({ ok: true, rooms: listPublicRooms() });
@@ -185,7 +202,6 @@ export function registerSocketHandlers(io: Server): void {
       await socket.leave(roomChannel(roomId));
       ack(cb)({ ok: true, closed: result.value.closed });
     });
-
     // ── 소켓을 방에 연결 (첫 입장·새로고침·재접속 공용 — 부록 A-2) ──
     socket.on('room:attach', async (payload: { roomId?: string; token?: string }, cb?: unknown) => {
       const room = getRoom(String(payload?.roomId ?? ''));
@@ -217,14 +233,31 @@ export function registerSocketHandlers(io: Server): void {
       ack(cb)({ ok: true });
     });
 
+    // ── AI 참가자 추가/제거 (부록 A-23) — 대기실에서 호스트만 조작한다 ──
+    socket.on('room:add-ai', (payload: { roomId?: string; token?: string }, cb?: unknown) => {
+      const result = addAiPlayer(String(payload?.roomId ?? ''), String(payload?.token ?? ''));
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      broadcastRoomState(io, result.value);
+      ack(cb)({ ok: true, roomState: toRoomStatePayload(result.value) });
+    });
+
+    socket.on('room:remove-ai', (payload: { roomId?: string; token?: string; name?: string }, cb?: unknown) => {
+      const result = removeAiPlayer(String(payload?.roomId ?? ''), String(payload?.token ?? ''), payload?.name);
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      broadcastRoomState(io, result.value);
+      ack(cb)({ ok: true, roomState: toRoomStatePayload(result.value) });
+    });
+
     // ── 게임 시작 (§21-5~6: 호스트 전용, 랜덤 좌석) ─────────────
     socket.on('room:start', async (payload: { roomId?: string; token?: string }, cb?: unknown) => {
       const result = startGame(String(payload?.roomId ?? ''), String(payload?.token ?? ''));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       const room = result.value;
       touchRoom(room.id);
+      const aiLog = runAiTurns(room, CATALOG);
       broadcastRoomState(io, room);
       io.in(roomChannel(room.id)).emit('game:started', { roomId: room.id });
+      await broadcastLog(io, room, aiLog);
       await broadcastViews(io, room);
       ack(cb)({ ok: true });
     });
@@ -262,6 +295,7 @@ export function registerSocketHandlers(io: Server): void {
 
       room.game = finalState;
       touchRoom(room.id);
+      combinedLog.push(...runAiTurns(room, CATALOG));
       await broadcastLog(io, room, combinedLog);
       await broadcastViews(io, room);
       // ack에 요청자 시점의 최신 뷰를 함께 돌려준다 — 브로드캐스트와의 순서 경합 없이

@@ -9,6 +9,11 @@
     "build:libs": "pnpm --filter @kingmakers/engine build && pnpm --filter @kingmakers/data build",
     "build": "pnpm -r build",
     "test": "pnpm build:libs && pnpm -r test",
-    "typecheck": "pnpm --filter @kingmakers/engine typecheck && pnpm --filter @kingmakers/data typecheck && pnpm --filter @kingmakers/server typecheck && pnpm --filter @kingmakers/client typecheck"
+    "typecheck": "pnpm --filter @kingmakers/engine typecheck && pnpm --filter @kingmakers/data typecheck && pnpm --filter @kingmakers/server typecheck && pnpm --filter @kingmakers/client typecheck",
+    "ai:report": "tsx scripts/ai-selfplay-report.ts",
+    "ai:report:json": "tsx scripts/ai-selfplay-report.ts --json"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.0"
   }
 }

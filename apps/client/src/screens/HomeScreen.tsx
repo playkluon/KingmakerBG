@@ -19,6 +19,8 @@ export function HomeScreen() {
   const [customRoomId, setCustomRoomId] = useState('');
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [allowSpectators, setAllowSpectators] = useState(true);
+  const [hostJoinsAsPlayer, setHostJoinsAsPlayer] = useState(false);
+  const [aiPlayerCount, setAiPlayerCount] = useState(0);
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,6 +37,8 @@ export function HomeScreen() {
     const res = await createRoom(hostName.trim(), { 
       visibility, 
       allowSpectators, 
+      hostJoinsAsPlayer, 
+      aiPlayerCount,
       customRoomId: customRoomId.trim() || undefined 
     });
     setBusy(false);
@@ -88,7 +92,7 @@ export function HomeScreen() {
                 checked={visibility === 'public'}
                 onChange={() => setVisibility('public')}
               />
-              공개방
+              공개방 (방 목록에 노출)
             </label>
             <label className={styles.radioLabel}>
               <input
@@ -97,7 +101,7 @@ export function HomeScreen() {
                 checked={visibility === 'private'}
                 onChange={() => setVisibility('private')}
               />
-              비공개방
+              비공개방 (초대 코드로만 입장)
             </label>
           </div>
           <div className={styles.visibilityRow} style={{ marginTop: '0.5rem' }}>
@@ -110,7 +114,28 @@ export function HomeScreen() {
               관전 허용
             </label>
           </div>
-          <p className={styles.hint}>호스트도 참가자로 함께 플레이합니다</p>
+          <label className={styles.radioLabel}>
+            <input
+              type="checkbox"
+              checked={hostJoinsAsPlayer}
+              onChange={(e) => setHostJoinsAsPlayer(e.target.checked)}
+            />
+            저도 플레이어로 참가할게요
+          </label>
+          <label className={styles.fieldLabel}>
+            AI 참가자
+            <select
+              className={styles.select}
+              value={aiPlayerCount}
+              onChange={(e) => setAiPlayerCount(Number(e.target.value))}
+            >
+              {Array.from({ length: hostJoinsAsPlayer ? 7 : 8 }, (_, count) => (
+                <option key={count} value={count}>
+                  {count}명
+                </option>
+              ))}
+            </select>
+          </label>
           <button className={board.button} disabled={!hostName.trim() || busy} onClick={handleCreate}>
             방 만들기
           </button>
@@ -154,8 +179,7 @@ export function HomeScreen() {
           {publicRooms.map((room) => (
             <div key={room.id} className={styles.participantRow}>
               <span>
-                {room.hostName}님의 방 · 인원 {room.playerCount}/{room.maxPlayers} · 관전{' '}
-                {room.spectatorCount}/{room.maxSpectators}
+                {room.hostName}님의 방 · 인원 {room.playerCount}/{room.maxPlayers} · 관전 {room.spectatorCount}/{room.maxSpectators}
                 {!room.allowSpectators && <span style={{ color: '#e53e3e', fontSize: '0.85rem', marginLeft: '4px' }}>(불가)</span>}
               </span>
               <span className={styles.roomListActions}>
