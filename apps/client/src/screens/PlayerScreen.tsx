@@ -1,6 +1,8 @@
 // 기반 스킬: skills/client-player/SKILL.md
 // /room/:id/play — 공용 보드 축약 + 내 전용 패널 (§21 "자기 좌석 개인 화면")
+// 부록 A-22: 호스트가 참가자를 겸하면 이 화면에서 플레이하면서도 방 관리 도구(수동 진행)를 함께 쓸 수 있어야 한다
 import { useEffect, useState } from 'react';
+import { getPendingDecision } from '@kingmakers/engine';
 import { navigate } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
 import { ActionLog } from '../components/board/ActionLog';
@@ -19,6 +21,7 @@ import { MyResources } from '../components/player/MyResources';
 import { ScoreRoute } from '../components/player/ScoreRoute';
 import { SecretAgenda } from '../components/player/SecretAgenda';
 import { TodoBanner } from '../components/player/TodoBanner';
+import board from '../components/board/board.module.css';
 import styles from './screens.module.css';
 
 interface PlayerScreenProps {
@@ -27,13 +30,16 @@ interface PlayerScreenProps {
 
 export function PlayerScreen({ roomId }: PlayerScreenProps) {
   const role = useGameStore((s) => s.role);
+  const isHost = useGameStore((s) => s.isHost);
   const myPlayerId = useGameStore((s) => s.myPlayerId);
   const roomState = useGameStore((s) => s.roomState);
   const view = useGameStore((s) => s.view);
   const attach = useGameStore((s) => s.attach);
+  const sendAction = useGameStore((s) => s.sendAction);
   const lastError = useGameStore((s) => s.lastError);
 
   const [loading, setLoading] = useState(true);
+  const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +75,15 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
     );
   }
 
+  const pending = getPendingDecision(view);
+  const locked = pending !== null && pending.actors.length > 0;
+
+  async function handleAdvance() {
+    setAdvancing(true);
+    await sendAction({ type: 'runUntilPlayerAction' });
+    setAdvancing(false);
+  }
+
   return (
     <main className={styles.page}>
       <EffectToast state={view} />
@@ -77,6 +92,21 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
         <PhaseHeader state={view} />
         <RoundGoals state={view} />
         <FinalResults state={view} />
+
+        {/* 부록 A-22: 참가자를 겸한 호스트용 수동 진행 안전망 — 평소엔 자동 진행되어 누를 필요가 없다 */}
+        {isHost && (
+          <div className={board.section}>
+            <button
+              className={board.buttonGhost}
+              disabled={locked || advancing || view.phase === 'gameEnd'}
+              onClick={handleAdvance}
+            >
+              {advancing ? '진행 중…' : '호스트 도구: 진행'}
+            </button>
+            {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+          </div>
+        )}
+
         <TodoBanner state={view} myPlayerId={myPlayerId} />
         <OnboardingHints phase={view.phase} />
         <MyResources state={view} myPlayerId={myPlayerId} />

@@ -6,7 +6,7 @@ import type { CardCatalog, DrawPiles, GameState, PlayerId } from '@kingmakers/en
 import { AGENDAS, buildCardCatalog, CANDIDATES, CANDIDATE_EVENTS, ISSUES, PROMISES, VOTERS, VOTER_EVENTS } from '@kingmakers/data';
 
 export interface RoomPlayer {
-  /** playerToken (uuid) — 재접속·권한 검증의 근거 (부록 A-2) */
+  /** playerToken (uuid) — 재접속·권한 검증의 근거 (부록 A-2). 호스트가 겸직 참가하면 hostToken과 동일한 값이다 (부록 A-22) */
   token: string;
   name: string;
   ready: boolean;
@@ -14,17 +14,33 @@ export interface RoomPlayer {
   playerId: PlayerId | null;
 }
 
+/** 관전자 — 좌석·ready 없이 공개 정보만 구경한다 (부록 A-3 spectator 시점) */
+export interface RoomSpectator {
+  token: string;
+  name: string;
+}
+
+/** 방 공개 범위 (부록 A-22): 공개방은 room:list로 조회되고, 비공개방은 초대 링크로만 입장한다 */
+export type RoomVisibility = 'public' | 'private';
+
 export interface Room {
   id: string;
   hostToken: string;
   hostName: string;
+  visibility: RoomVisibility;
   status: 'waiting' | 'playing';
   players: RoomPlayer[];
+  spectators: RoomSpectator[];
   game: GameState | null;
 }
 
 /** 방 관련 실패는 throw가 아니라 사유 문자열로 돌려준다 (CLAUDE.md — 서버가 해당 소켓에만 회신) */
 export type RoomResult<T> = { ok: true; value: T } | { ok: false; reason: string };
+
+/** 인원별 설정표 (부록 A-22) — 게임 규칙 수치가 아니라 방 운영 정원이라 engine/constants.ts가 아닌 여기 둔다 */
+export const MIN_PLAYERS = 4;
+export const MAX_PLAYERS = 7;
+export const MAX_SPECTATORS = 5;
 
 const rooms = new Map<string, Room>();
 
@@ -62,15 +78,30 @@ export function clearRooms(): void {
   rooms.clear();
 }
 
-export function createRoom(hostName: string): RoomResult<Room> {
+export interface CreateRoomOptions {
+  /** 공개방은 room:list로 조회되고, 비공개방은 초대 링크로만 입장한다 (부록 A-22). 기본값은 안전한 쪽인 비공개 */
+  visibility?: RoomVisibility;
+  /** 호스트도 좌석을 받아 플레이어로 참가할지 (부록 A-22) — true면 hostToken을 그대로 참가자 토큰으로 등록한다 */
+  hostJoinsAsPlayer?: boolean;
+}
+
+/** 방 전체에서 이미 쓰이는 이름인지 확인한다 — 참가자와 관전자를 통틀어 하나의 이름 공간을 쓴다 */
+function isNameTaken(room: Room, name: string): boolean {
+  return room.players.some((p) => p.name === name) || room.spectators.some((s) => s.name === name);
+}
+
+export function createRoom(hostName: string, options: CreateRoomOptions = {}): RoomResult<Room> {
   const name = hostName.trim();
   if (!name) return { ok: false, reason: '호스트 이름을 입력하세요' };
+  const hostToken = randomUUID();
   const room: Room = {
     id: newRoomId(),
-    hostToken: randomUUID(),
+    hostToken,
     hostName: name,
+    visibility: options.visibility === 'public' ? 'public' : 'private',
     status: 'waiting',
-    players: [],
+    players: options.hostJoinsAsPlayer ? [{ token: hostToken, name, ready: false, playerId: null }] : [],
+    spectators: [],
     game: null,
   };
   rooms.set(room.id, room);
@@ -81,14 +112,55 @@ export function joinRoom(roomId: string, playerName: string): RoomResult<{ room:
   const room = rooms.get(roomId);
   if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
   if (room.status !== 'waiting') return { ok: false, reason: '이미 게임이 시작된 방입니다' };
-  if (room.players.length >= 7) return { ok: false, reason: '정원(7명)이 가득 찼습니다' };
+  if (room.players.length >= MAX_PLAYERS) return { ok: false, reason: `정원(${MAX_PLAYERS}명)이 가득 찼습니다` };
   const name = playerName.trim();
   if (!name) return { ok: false, reason: '이름을 입력하세요' };
-  if (room.players.some((p) => p.name === name)) return { ok: false, reason: '이미 사용 중인 이름입니다' };
+  if (isNameTaken(room, name)) return { ok: false, reason: '이미 사용 중인 이름입니다' };
 
   const player: RoomPlayer = { token: randomUUID(), name, ready: false, playerId: null };
   room.players.push(player);
   return { ok: true, value: { room, token: player.token } };
+}
+
+/**
+ * 관전자 입장 (부록 A-22) — 좌석·ready가 없어 게임 진행 중에도 언제든 들어올 수 있고, 정원은 MAX_SPECTATORS로 제한한다.
+ */
+export function spectateRoom(roomId: string, spectatorName: string): RoomResult<{ room: Room; token: string }> {
+  const room = rooms.get(roomId);
+  if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+  if (room.spectators.length >= MAX_SPECTATORS) return { ok: false, reason: `관전 정원(${MAX_SPECTATORS}명)이 가득 찼습니다` };
+  const name = spectatorName.trim();
+  if (!name) return { ok: false, reason: '이름을 입력하세요' };
+  if (isNameTaken(room, name)) return { ok: false, reason: '이미 사용 중인 이름입니다' };
+
+  const spectator: RoomSpectator = { token: randomUUID(), name };
+  room.spectators.push(spectator);
+  return { ok: true, value: { room, token: spectator.token } };
+}
+
+/** 공개방 목록 (부록 A-22) — room:list가 토큰 없이 누구에게나 돌려주는 요약 정보라 민감 데이터는 포함하지 않는다 */
+export interface PublicRoomSummary {
+  id: string;
+  hostName: string;
+  status: 'waiting' | 'playing';
+  playerCount: number;
+  maxPlayers: number;
+  spectatorCount: number;
+  maxSpectators: number;
+}
+
+export function listPublicRooms(): PublicRoomSummary[] {
+  return [...rooms.values()]
+    .filter((room) => room.visibility === 'public')
+    .map((room) => ({
+      id: room.id,
+      hostName: room.hostName,
+      status: room.status,
+      playerCount: room.players.length,
+      maxPlayers: MAX_PLAYERS,
+      spectatorCount: room.spectators.length,
+      maxSpectators: MAX_SPECTATORS,
+    }));
 }
 
 export function setReady(roomId: string, token: string, ready: boolean): RoomResult<Room> {
@@ -110,8 +182,8 @@ export function startGame(roomId: string, token: string): RoomResult<Room> {
   if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
   if (token !== room.hostToken) return { ok: false, reason: '게임 시작은 호스트만 할 수 있습니다' };
   if (room.status !== 'waiting') return { ok: false, reason: '이미 게임이 시작되었습니다' };
-  if (room.players.length < 4 || room.players.length > 7) {
-    return { ok: false, reason: `4~7명이 필요합니다 (현재 ${room.players.length}명)` };
+  if (room.players.length < MIN_PLAYERS || room.players.length > MAX_PLAYERS) {
+    return { ok: false, reason: `${MIN_PLAYERS}~${MAX_PLAYERS}명이 필요합니다 (현재 ${room.players.length}명)` };
   }
   if (!room.players.every((p) => p.ready)) return { ok: false, reason: '아직 준비하지 않은 참가자가 있습니다' };
 
@@ -144,9 +216,16 @@ export function toRoomStatePayload(room: Room) {
     id: room.id,
     status: room.status,
     hostName: room.hostName,
-    maxPlayers: 7,
-    minPlayers: 4,
+    visibility: room.visibility,
+    maxPlayers: MAX_PLAYERS,
+    minPlayers: MIN_PLAYERS,
+    maxSpectators: MAX_SPECTATORS,
     players: room.players.map((p) => ({ name: p.name, ready: p.ready, playerId: p.playerId })),
-    canStart: room.status === 'waiting' && room.players.length >= 4 && room.players.length <= 7 && room.players.every((p) => p.ready),
+    spectators: room.spectators.map((s) => ({ name: s.name })),
+    canStart:
+      room.status === 'waiting' &&
+      room.players.length >= MIN_PLAYERS &&
+      room.players.length <= MAX_PLAYERS &&
+      room.players.every((p) => p.ready),
   };
 }

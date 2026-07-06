@@ -3,7 +3,19 @@
 import { isPlayerAction, reduce } from '@kingmakers/engine';
 import type { ActionLogEntry, GameAction } from '@kingmakers/engine';
 import type { Server, Socket } from 'socket.io';
-import { CATALOG, createRoom, getRoom, joinRoom, setReady, startGame, toRoomStatePayload, type Room } from './rooms';
+import {
+  CATALOG,
+  createRoom,
+  getRoom,
+  joinRoom,
+  listPublicRooms,
+  setReady,
+  spectateRoom,
+  startGame,
+  toRoomStatePayload,
+  type Room,
+  type RoomVisibility,
+} from './rooms';
 import { filterActionLog, projectView, type Viewer } from './views';
 
 /**
@@ -27,19 +39,28 @@ function roomChannel(roomId: string): string {
   return `room:${roomId}`;
 }
 
-/** 토큰으로 이 소켓의 뷰 시점을 판정한다 — 호스트 토큰=table, 좌석 있는 참가자=player, 그 외=spectator */
+/**
+ * 토큰으로 이 소켓의 뷰 시점을 판정한다 (부록 A-22: 호스트도 좌석을 겸할 수 있다).
+ * 좌석 있는 참가자=player를 호스트 토큰 검사보다 먼저 확인해야, 참가자로도 등록된 호스트가
+ * table(전원 비밀 마스킹)이 아니라 자기 비밀이 보이는 player 시점을 받는다.
+ */
 function resolveViewer(room: Room, token: string | undefined): Viewer {
-  if (token && token === room.hostToken) return { kind: 'table' };
   const player = token ? room.players.find((p) => p.token === token) : undefined;
   if (player?.playerId) return { kind: 'player', playerId: player.playerId };
+  if (token && token === room.hostToken) return { kind: 'table' };
   return { kind: 'spectator' };
 }
 
 /** UI 라우팅용 역할 — 좌석 배정 전이라도 참가자 토큰이면 'player'다 (resolveViewer와 구분) */
 function resolveRole(room: Room, token: string | undefined): 'host' | 'player' | 'spectator' {
-  if (token && token === room.hostToken) return 'host';
   if (token && room.players.some((p) => p.token === token)) return 'player';
+  if (token && token === room.hostToken) return 'host';
   return 'spectator';
+}
+
+/** 이 토큰이 호스트인지 — 참가자를 겸해도(role='player') 방 관리 권한은 별도로 계속 필요하다 (부록 A-22) */
+function isHostToken(room: Room, token: string | undefined): boolean {
+  return !!token && token === room.hostToken;
 }
 
 /** 방의 모든 소켓에 각자 시점으로 마스킹한 뷰를 보낸다 (부록 A-3: 시점마다 payload가 다르다) */
@@ -88,11 +109,22 @@ function authorizeAction(room: Room, token: string, action: GameAction): string 
 /** 서버의 모든 소켓 이벤트를 등록한다 */
 export function registerSocketHandlers(io: Server): void {
   io.on('connection', (socket: Socket) => {
-    // ── 방 생성 (§21-1) ──────────────────────────────────────
-    socket.on('room:create', (payload: { name?: string }, cb?: unknown) => {
-      const result = createRoom(String(payload?.name ?? ''));
-      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
-      ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
+    // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 + 호스트 겸직 참가 옵션) ──
+    socket.on(
+      'room:create',
+      (payload: { name?: string; visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean }, cb?: unknown) => {
+        const result = createRoom(String(payload?.name ?? ''), {
+          visibility: payload?.visibility,
+          hostJoinsAsPlayer: Boolean(payload?.hostJoinsAsPlayer),
+        });
+        if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+        ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
+      },
+    );
+
+    // ── 공개방 목록 조회 (부록 A-22) — 특정 방에 붙지 않고도 누구나 호출할 수 있다 ──
+    socket.on('room:list', (_payload: unknown, cb?: unknown) => {
+      ack(cb)({ ok: true, rooms: listPublicRooms() });
     });
 
     // ── 참가자 입장 (§21-3: 초대 링크 + 이름 입력) ─────────────
@@ -101,6 +133,14 @@ export function registerSocketHandlers(io: Server): void {
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       broadcastRoomState(io, result.value.room);
       ack(cb)({ ok: true, playerToken: result.value.token, roomState: toRoomStatePayload(result.value.room) });
+    });
+
+    // ── 관전자 입장 (부록 A-22) — 좌석이 없어 게임 중에도 언제든 입장할 수 있다 ──
+    socket.on('room:spectate', (payload: { roomId?: string; name?: string }, cb?: unknown) => {
+      const result = spectateRoom(String(payload?.roomId ?? ''), String(payload?.name ?? ''));
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      broadcastRoomState(io, result.value.room);
+      ack(cb)({ ok: true, spectatorToken: result.value.token, roomState: toRoomStatePayload(result.value.room) });
     });
 
     // ── 소켓을 방에 연결 (첫 입장·새로고침·재접속 공용 — 부록 A-2) ──
@@ -117,6 +157,8 @@ export function registerSocketHandlers(io: Server): void {
       ack(cb)({
         ok: true,
         role: resolveRole(room, token),
+        // 참가자를 겸한 호스트는 role이 'player'로 나오므로, 방 관리 UI 노출은 이 플래그로 별도 판단한다 (부록 A-22)
+        isHost: isHostToken(room, token),
         myPlayerId: viewer.kind === 'player' ? viewer.playerId : null,
         roomState: toRoomStatePayload(room),
         view: room.game ? projectView(room.game, viewer) : null,
