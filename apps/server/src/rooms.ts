@@ -313,9 +313,15 @@ export function leaveRoom(roomId: string, token: string): RoomResult<{ closed: b
   }
 
   if (token === room.hostToken) {
-    const nextHost = room.players[0]!;
-    room.hostToken = nextHost.token;
-    room.hostName = nextHost.name;
+    const nextHumanHost = room.players.find(p => !p.isAi);
+    if (nextHumanHost) {
+      room.hostToken = nextHumanHost.token;
+      room.hostName = nextHumanHost.name;
+    } else {
+      // 남은 사람이 모두 AI라면 방을 유지할 이유가 없으므로 파기한다
+      rooms.delete(roomId);
+      return { ok: true, value: { closed: true } };
+    }
   }
 
   return { ok: true, value: { closed: false } };
