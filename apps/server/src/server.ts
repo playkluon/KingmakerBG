@@ -13,7 +13,7 @@ export interface GameServer {
 }
 
 /** Express 앱과 Socket.IO 서버를 조립한다 (listen은 호출자 몫) */
-export function createGameServer(corsOrigin: string): GameServer {
+export function createGameServer(corsOrigin: string | string[]): GameServer {
   const app = express();
 
   // 헬스체크 — 배포·개발 확인용

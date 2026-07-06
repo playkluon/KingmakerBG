@@ -1,0 +1,30 @@
+name: Deploy Mac mini
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingmakerbg-macmini-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy KingmakerBG
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - kingmakerbg-macmini
+    timeout-minutes: 20
+    steps:
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v4
+
+      - name: Deploy served checkout
+        run: bash scripts/deploy-macmini.sh

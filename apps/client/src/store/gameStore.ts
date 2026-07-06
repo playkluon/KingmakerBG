@@ -7,6 +7,7 @@ import type { GameAction, GameState, PlayerId } from '@kingmakers/engine';
 import { loadAnyToken, loadMyName, saveHostToken, saveMyName, savePlayerToken } from '../lib/storage';
 
 const SERVER_URL: string = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001';
+const SOCKET_PATH: string = import.meta.env.VITE_SOCKET_PATH ?? '/socket.io';
 
 /** 서버 toRoomStatePayload와 동일한 형태 */
 export interface RoomStatePayload {
@@ -55,7 +56,7 @@ let socket: Socket | null = null;
 /** 소켓 싱글턴 — 이벤트 수신은 전부 스토어 갱신으로 이어진다 */
 function getSocket(): Socket {
   if (socket) return socket;
-  socket = io(SERVER_URL, { autoConnect: true });
+  socket = io(SERVER_URL, { autoConnect: true, path: SOCKET_PATH });
 
   socket.on('connect', () => {
     useGameStore.setState({ connected: true });

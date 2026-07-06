@@ -1,7 +1,7 @@
 // 기반 스킬: skills/client-lobby-table/SKILL.md
 // 참가자 목록 + ready 상태 + 호스트 시작 버튼만 보여준다 (§21) — 인게임 보드는 여기서 그리지 않는다
 import { useEffect, useState } from 'react';
-import { navigate } from '../lib/router';
+import { navigate, toAppPath } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
 import board from '../components/board/board.module.css';
 import styles from './screens.module.css';
@@ -56,7 +56,7 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}`);
+      await navigator.clipboard.writeText(`${window.location.origin}${toAppPath(`/room/${roomId}`)}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

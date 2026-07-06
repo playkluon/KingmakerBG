@@ -9,7 +9,10 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // PORT 대신 SERVER_PORT 사용 — 실행 환경(프리뷰/호스팅)이 주입하는 PORT와의 충돌 방지
 const PORT = Number(process.env.SERVER_PORT ?? 3001);
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 /** 게임 서버를 기동한다 */
 function main(): void {

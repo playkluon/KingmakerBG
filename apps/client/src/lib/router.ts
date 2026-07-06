@@ -2,15 +2,36 @@
 // 초소형 경로 라우터 — /room/:id(/table|/play|/watch) 4개 경로면 충분해 라우터 라이브러리를 쓰지 않는다.
 import { useEffect, useState } from 'react';
 
+const BASE_PATH = normalizeBasePath(import.meta.env.BASE_URL);
+
 export interface Route {
   screen: 'home' | 'room-entry' | 'table' | 'play' | 'watch' | 'not-found';
   roomId: string | null;
 }
 
+function normalizeBasePath(baseUrl: string): string {
+  if (!baseUrl || baseUrl === '/') return '';
+  return `/${baseUrl.replace(/^\/+|\/+$/g, '')}`;
+}
+
+function stripBasePath(pathname: string): string {
+  if (!BASE_PATH) return pathname;
+  if (pathname === BASE_PATH) return '/';
+  if (pathname.startsWith(`${BASE_PATH}/`)) return pathname.slice(BASE_PATH.length) || '/';
+  return pathname;
+}
+
+export function toAppPath(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (!BASE_PATH) return normalized;
+  return normalized === '/' ? BASE_PATH : `${BASE_PATH}${normalized}`;
+}
+
 /** pathname을 Route로 해석한다 */
 export function parsePath(pathname: string): Route {
-  if (pathname === '/' || pathname === '') return { screen: 'home', roomId: null };
-  const match = /^\/room\/([A-Za-z0-9]+)(?:\/(table|play|watch))?\/?$/.exec(pathname);
+  const appPath = stripBasePath(pathname);
+  if (appPath === '/' || appPath === '') return { screen: 'home', roomId: null };
+  const match = /^\/room\/([A-Za-z0-9]+)(?:\/(table|play|watch))?\/?$/.exec(appPath);
   if (!match) return { screen: 'not-found', roomId: null };
   const roomId = match[1]!;
   const suffix = match[2];
@@ -22,7 +43,7 @@ export function parsePath(pathname: string): Route {
 
 /** history API로 이동하고 라우트 구독자에게 알린다 */
 export function navigate(path: string): void {
-  window.history.pushState(null, '', path);
+  window.history.pushState(null, '', toAppPath(path));
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
