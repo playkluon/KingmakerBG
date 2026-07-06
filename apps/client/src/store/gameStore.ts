@@ -25,6 +25,7 @@ export interface RoomStatePayload {
   status: 'waiting' | 'playing';
   hostName: string;
   visibility: RoomVisibility;
+  allowSpectators: boolean;
   maxPlayers: number;
   minPlayers: number;
   maxSpectators: number;
@@ -38,6 +39,8 @@ export interface PublicRoomSummary {
   id: string;
   hostName: string;
   status: 'waiting' | 'playing';
+  visibility: RoomVisibility;
+  allowSpectators: boolean;
   playerCount: number;
   maxPlayers: number;
   spectatorCount: number;
@@ -69,7 +72,7 @@ interface GameStore {
   /** 마지막 거부/오류 사유 — 화면이 토스트로 보여주고 지운다 */
   lastError: string | null;
 
-  createRoom(name: string, options?: { visibility?: RoomVisibility }): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
+  createRoom(name: string, options?: { visibility?: RoomVisibility; allowSpectators?: boolean; customRoomId?: string }): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
   joinRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
   /** 관전자로 입장한다 (부록 A-22) — 게임 중인 방에도 언제든 입장할 수 있다 */
   spectateRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
@@ -148,7 +151,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastError: null,
 
   async createRoom(name, options) {
-    const res = await emitAck('room:create', { name, visibility: options?.visibility });
+    const res = await emitAck('room:create', { name, visibility: options?.visibility, allowSpectators: options?.allowSpectators, customRoomId: options?.customRoomId });
     if (!res.ok) {
       set({ lastError: res.reason ?? '방 생성에 실패했습니다' });
       return { ok: false, reason: res.reason };

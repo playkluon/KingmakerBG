@@ -28,6 +28,7 @@ export interface Room {
   hostToken: string;
   hostName: string;
   visibility: RoomVisibility;
+  allowSpectators: boolean;
   status: 'waiting' | 'playing';
   players: RoomPlayer[];
   spectators: RoomSpectator[];
@@ -81,6 +82,8 @@ export function clearRooms(): void {
 export interface CreateRoomOptions {
   /** 공개방은 room:list로 조회되고, 비공개방은 초대 링크로만 입장한다 (부록 A-22). 기본값은 안전한 쪽인 비공개 */
   visibility?: RoomVisibility;
+  allowSpectators?: boolean;
+  customRoomId?: string;
 }
 
 /** 방 전체에서 이미 쓰이는 이름인지 확인한다 — 참가자와 관전자를 통틀어 하나의 이름 공간을 쓴다 */
@@ -96,12 +99,21 @@ function isNameTaken(room: Room, name: string): boolean {
 export function createRoom(hostName: string, options: CreateRoomOptions = {}): RoomResult<Room> {
   const name = hostName.trim();
   if (!name) return { ok: false, reason: '호스트 이름을 입력하세요' };
+  
+  let id = newRoomId();
+  if (options.customRoomId?.trim()) {
+    id = options.customRoomId.trim();
+    if (id.length > 20) return { ok: false, reason: '방 코드는 20자 이하여야 합니다' };
+    if (rooms.has(id)) return { ok: false, reason: '이미 존재하는 방 코드입니다' };
+  }
+
   const hostToken = randomUUID();
   const room: Room = {
-    id: newRoomId(),
+    id,
     hostToken,
     hostName: name,
     visibility: options.visibility === 'public' ? 'public' : 'private',
+    allowSpectators: options.allowSpectators ?? true,
     status: 'waiting',
     players: [{ token: hostToken, name, ready: false, playerId: null }],
     spectators: [],
@@ -131,6 +143,7 @@ export function joinRoom(roomId: string, playerName: string): RoomResult<{ room:
 export function spectateRoom(roomId: string, spectatorName: string): RoomResult<{ room: Room; token: string }> {
   const room = rooms.get(roomId);
   if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+  if (!room.allowSpectators) return { ok: false, reason: '이 방은 관전을 허용하지 않습니다' };
   if (room.spectators.length >= MAX_SPECTATORS) return { ok: false, reason: `관전 정원(${MAX_SPECTATORS}명)이 가득 찼습니다` };
   const name = spectatorName.trim();
   if (!name) return { ok: false, reason: '이름을 입력하세요' };
@@ -146,6 +159,8 @@ export interface PublicRoomSummary {
   id: string;
   hostName: string;
   status: 'waiting' | 'playing';
+  visibility: RoomVisibility;
+  allowSpectators: boolean;
   playerCount: number;
   maxPlayers: number;
   spectatorCount: number;
@@ -159,6 +174,8 @@ export function listPublicRooms(): PublicRoomSummary[] {
       id: room.id,
       hostName: room.hostName,
       status: room.status,
+      visibility: room.visibility,
+      allowSpectators: room.allowSpectators,
       playerCount: room.players.length,
       maxPlayers: MAX_PLAYERS,
       spectatorCount: room.spectators.length,
@@ -196,14 +213,22 @@ export function leaveRoom(roomId: string, token: string): RoomResult<{ closed: b
 
   if (room.status !== 'waiting') return { ok: false, reason: '게임이 시작된 후에는 나갈 수 없습니다' };
 
-  if (token === room.hostToken) {
+  const playerIndex = room.players.findIndex((p) => p.token === token);
+  if (playerIndex === -1) return { ok: false, reason: '이 방에 속해 있지 않습니다' };
+  
+  room.players.splice(playerIndex, 1);
+
+  if (room.players.length === 0) {
     rooms.delete(roomId);
     return { ok: true, value: { closed: true } };
   }
 
-  const playerIndex = room.players.findIndex((p) => p.token === token);
-  if (playerIndex === -1) return { ok: false, reason: '이 방에 속해 있지 않습니다' };
-  room.players.splice(playerIndex, 1);
+  if (token === room.hostToken) {
+    const nextHost = room.players[0]!;
+    room.hostToken = nextHost.token;
+    room.hostName = nextHost.name;
+  }
+
   return { ok: true, value: { closed: false } };
 }
 
@@ -251,6 +276,7 @@ export function toRoomStatePayload(room: Room) {
     status: room.status,
     hostName: room.hostName,
     visibility: room.visibility,
+    allowSpectators: room.allowSpectators,
     maxPlayers: MAX_PLAYERS,
     minPlayers: MIN_PLAYERS,
     maxSpectators: MAX_SPECTATORS,

@@ -124,8 +124,12 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
             <button className={board.button} disabled={!joinName.trim() || busy} onClick={handleJoin}>
               플레이어로 참가
             </button>
-            <button className={board.buttonGhost} disabled={!joinName.trim() || busy} onClick={handleSpectate}>
-              관전자로 참가 ({roomState.spectators.length}/{roomState.maxSpectators})
+            <button 
+              className={board.buttonGhost} 
+              disabled={!joinName.trim() || busy || !roomState.allowSpectators} 
+              onClick={handleSpectate}
+            >
+              관전자로 참가 ({roomState.spectators.length}/{roomState.maxSpectators}) {!roomState.allowSpectators && '(불가)'}
             </button>
           </div>
         </section>
@@ -141,6 +145,7 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
       <h1 className={styles.title}>
         {roomState.hostName}님의 방
         <span className={styles.visibilityBadge}>{roomState.visibility === 'public' ? '공개방' : '비공개방'}</span>
+        {!roomState.allowSpectators && <span className={styles.visibilityBadge} style={{ marginLeft: '8px', background: '#e53e3e' }}>관전불가</span>}
       </h1>
       <p className={styles.hint}>
         초대 코드 <span className={styles.code}>{roomId}</span>{' '}
@@ -192,19 +197,26 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
         </div>
       </div>
 
-      <div className={`${styles.panel} ${styles.wide}`}>
-        <h2 className={styles.panelTitle}>
-          관전자 ({roomState.spectators.length}/{roomState.maxSpectators})
-        </h2>
-        <div className={styles.participantList}>
-          {roomState.spectators.length === 0 && <p className={styles.hint}>아직 관전자가 없습니다</p>}
-          {roomState.spectators.map((s) => (
-            <div key={s.name} className={styles.participantRow}>
-              <span>{s.name}</span>
-            </div>
-          ))}
+      {roomState.allowSpectators ? (
+        <div className={`${styles.panel} ${styles.wide}`}>
+          <h2 className={styles.panelTitle}>
+            관전자 ({roomState.spectators.length}/{roomState.maxSpectators})
+          </h2>
+          <div className={styles.participantList}>
+            {roomState.spectators.length === 0 && <p className={styles.hint}>아직 관전자가 없습니다</p>}
+            {roomState.spectators.map((s) => (
+              <div key={s.name} className={styles.participantRow}>
+                <span>{s.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={`${styles.panel} ${styles.wide}`}>
+          <h2 className={styles.panelTitle}>관전자</h2>
+          <p className={styles.hint}>이 방은 관전을 허용하지 않습니다</p>
+        </div>
+      )}
     </main>
   );
 }

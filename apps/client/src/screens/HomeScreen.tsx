@@ -16,7 +16,9 @@ export function HomeScreen() {
   const clearError = useGameStore((s) => s.clearError);
 
   const [hostName, setHostName] = useState('');
+  const [customRoomId, setCustomRoomId] = useState('');
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
+  const [allowSpectators, setAllowSpectators] = useState(true);
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,7 +32,11 @@ export function HomeScreen() {
     if (!hostName.trim() || busy) return;
     setBusy(true);
     clearError();
-    const res = await createRoom(hostName.trim(), { visibility });
+    const res = await createRoom(hostName.trim(), { 
+      visibility, 
+      allowSpectators, 
+      customRoomId: customRoomId.trim() || undefined 
+    });
     setBusy(false);
     if (res.ok && res.roomId) navigate(`/room/${res.roomId}`);
   }
@@ -66,6 +72,12 @@ export function HomeScreen() {
             placeholder="호스트 이름"
             value={hostName}
             onChange={(e) => setHostName(e.target.value)}
+          />
+          <input
+            className={styles.input}
+            placeholder="방 코드 (선택: 비워두면 자동 생성)"
+            value={customRoomId}
+            onChange={(e) => setCustomRoomId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           />
           <div className={styles.visibilityRow}>
@@ -76,7 +88,7 @@ export function HomeScreen() {
                 checked={visibility === 'public'}
                 onChange={() => setVisibility('public')}
               />
-              공개방 (방 목록에 노출)
+              공개방
             </label>
             <label className={styles.radioLabel}>
               <input
@@ -85,7 +97,17 @@ export function HomeScreen() {
                 checked={visibility === 'private'}
                 onChange={() => setVisibility('private')}
               />
-              비공개방 (초대 코드로만 입장)
+              비공개방
+            </label>
+          </div>
+          <div className={styles.visibilityRow} style={{ marginTop: '0.5rem' }}>
+            <label className={styles.radioLabel}>
+              <input
+                type="checkbox"
+                checked={allowSpectators}
+                onChange={(e) => setAllowSpectators(e.target.checked)}
+              />
+              관전 허용
             </label>
           </div>
           <p className={styles.hint}>호스트도 참가자로 함께 플레이합니다</p>
@@ -134,6 +156,7 @@ export function HomeScreen() {
               <span>
                 {room.hostName}님의 방 · 인원 {room.playerCount}/{room.maxPlayers} · 관전{' '}
                 {room.spectatorCount}/{room.maxSpectators}
+                {!room.allowSpectators && <span style={{ color: '#e53e3e', fontSize: '0.85rem', marginLeft: '4px' }}>(불가)</span>}
               </span>
               <span className={styles.roomListActions}>
                 <span className={room.status === 'waiting' ? styles.hint : styles.readyBadgeOn}>

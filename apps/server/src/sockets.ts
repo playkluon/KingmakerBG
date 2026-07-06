@@ -111,8 +111,12 @@ function authorizeAction(room: Room, token: string, action: GameAction): string 
 export function registerSocketHandlers(io: Server): void {
   io.on('connection', (socket: Socket) => {
     // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트는 항상 좌석을 겸함) ──
-    socket.on('room:create', (payload: { name?: string; visibility?: RoomVisibility }, cb?: unknown) => {
-      const result = createRoom(String(payload?.name ?? ''), { visibility: payload?.visibility });
+    socket.on('room:create', (payload: { name?: string; visibility?: RoomVisibility; allowSpectators?: boolean; customRoomId?: string }, cb?: unknown) => {
+      const result = createRoom(String(payload?.name ?? ''), { 
+        visibility: payload?.visibility,
+        allowSpectators: payload?.allowSpectators,
+        customRoomId: payload?.customRoomId
+      });
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       ack(cb)({ ok: true, roomId: result.value.id, hostToken: result.value.hostToken });
     });
