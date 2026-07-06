@@ -31,7 +31,7 @@ export function PromisePicker({ state, myPlayerId }: PromisePickerProps) {
       {pending.map((candidateId) => {
         const options = state.round.camps[candidateId]?.promiseOptions ?? [];
         return (
-          <div key={candidateId} className={board.section}>
+          <div key={candidateId} className={`${board.section} ${board.rainbowBorderActive}`}>
             <h2 className={board.sectionTitle}>{candidateName(candidateId)}의 공약 선택</h2>
             <div className={styles.pickerGrid}>
               {options.map((promiseId) => {

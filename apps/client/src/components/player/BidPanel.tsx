@@ -61,7 +61,7 @@ export function BidPanel({ state, myPlayerId }: BidPanelProps) {
   }
 
   return (
-    <div className={board.section}>
+    <div className={`${board.section} ${board.rainbowBorderActive}`}>
       <h2 className={board.sectionTitle}>
         입찰 ({confirmedCount}/{state.players.length}명 확정)
       </h2>

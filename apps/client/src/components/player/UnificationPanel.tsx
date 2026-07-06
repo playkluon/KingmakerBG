@@ -38,7 +38,7 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
 
   if (proposal && isResponder) {
     return (
-      <div className={styles.secretPanel}>
+      <div className={`${styles.secretPanel} ${board.rainbowBorderActive}`}>
         <h2 className={styles.secretPanelTitle}>단일화 제안 수신</h2>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', margin: '20px 0', background: 'rgba(0,0,0,0.4)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ textAlign: 'center' }}>
@@ -108,7 +108,7 @@ export function UnificationPanel({ state, myPlayerId }: UnificationPanelProps) {
   const withdrawOptions = round.candidatesRunning.filter((id) => id !== leadCandidateId);
 
   return (
-    <div className={styles.secretPanel}>
+    <div className={`${styles.secretPanel} ${board.rainbowBorderActive}`}>
       <h2 className={styles.secretPanelTitle}>단일화 제안하기</h2>
       
       <div style={{ marginTop: '16px' }}>

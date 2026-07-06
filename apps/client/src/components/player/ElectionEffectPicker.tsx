@@ -44,7 +44,7 @@ export function ElectionEffectPicker({ state, myPlayerId }: ElectionEffectPicker
 
   if (effect.kind === 'choosePolicyMove') {
     return (
-      <div className={board.section}>
+      <div className={`${board.section} ${board.rainbowBorderActive}`}>
         <h2 className={board.sectionTitle}>당선 효과 선택 — {candidateName(winnerId)}</h2>
         <div className={styles.pickerGrid}>
           {effect.options.map((option) => (
@@ -68,7 +68,7 @@ export function ElectionEffectPicker({ state, myPlayerId }: ElectionEffectPicker
 
   if (effect.kind === 'flexPolicyMove') {
     return (
-      <div className={board.section}>
+      <div className={`${board.section} ${board.rainbowBorderActive}`}>
         <h2 className={board.sectionTitle}>당선 효과 선택 — {candidateName(winnerId)}</h2>
         <p className={styles.hint}>원하는 트랙과 방향을 자유롭게 선택하세요 ({effect.amount}칸 이동)</p>
         <div className={styles.actionRow}>
