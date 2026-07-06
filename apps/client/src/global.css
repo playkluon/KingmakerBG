@@ -2,9 +2,9 @@
 /* 전역 초기화 및 프리미엄 테마 시스템 */
 :root {
   /* Premium Dark Theme Palette */
-  --bg-base: #0f1115;
-  --bg-panel: rgba(22, 25, 33, 0.55);
-  --bg-panel-hover: rgba(30, 34, 45, 0.75);
+  --bg-base: #0a0b0e;
+  --bg-panel: rgba(18, 20, 28, 0.75);
+  --bg-panel-hover: rgba(30, 34, 45, 0.90);
   
   /* Accents */
   --accent-primary: #6366f1; /* Indigo */

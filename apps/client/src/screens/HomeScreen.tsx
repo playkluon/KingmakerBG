@@ -19,7 +19,6 @@ export function HomeScreen() {
   const [customRoomId, setCustomRoomId] = useState('');
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [allowSpectators, setAllowSpectators] = useState(true);
-  const [hostJoinsAsPlayer, setHostJoinsAsPlayer] = useState(false);
   const [aiPlayerCount, setAiPlayerCount] = useState(0);
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
@@ -37,7 +36,6 @@ export function HomeScreen() {
     const res = await createRoom(hostName.trim(), { 
       visibility, 
       allowSpectators, 
-      hostJoinsAsPlayer, 
       aiPlayerCount,
       customRoomId: customRoomId.trim() || undefined 
     });
@@ -114,14 +112,6 @@ export function HomeScreen() {
               관전 허용
             </label>
           </div>
-          <label className={styles.radioLabel}>
-            <input
-              type="checkbox"
-              checked={hostJoinsAsPlayer}
-              onChange={(e) => setHostJoinsAsPlayer(e.target.checked)}
-            />
-            저도 플레이어로 참가할게요
-          </label>
           <label className={styles.fieldLabel}>
             AI 참가자
             <select
@@ -129,7 +119,7 @@ export function HomeScreen() {
               value={aiPlayerCount}
               onChange={(e) => setAiPlayerCount(Number(e.target.value))}
             >
-              {Array.from({ length: hostJoinsAsPlayer ? 7 : 8 }, (_, count) => (
+              {Array.from({ length: 7 }, (_, count) => (
                 <option key={count} value={count}>
                   {count}명
                 </option>
