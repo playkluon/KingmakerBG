@@ -116,3 +116,47 @@
   align-items: center;
   margin-top: 6px;
 }
+
+/* ── 공개/비공개 선택, 관전/호스트 옵션 (부록 A-22) ── */
+.visibilityRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.roomListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.roomListActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.visibilityBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2e4a78;
+  background: #eef1f8;
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-left: 8px;
+}
+
+.roleChoiceRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}

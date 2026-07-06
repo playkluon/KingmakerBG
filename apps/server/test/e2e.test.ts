@@ -367,3 +367,95 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     expect(outsiderAfterAccept.view!.actionLog.some((e) => e.action === 'acceptSecretPact')).toBe(false);
   });
 });
+
+describe('부록 A-17: 호스트 겸 참가, 관전자 정원, 공개방 목록', () => {
+  it('호스트가 hostJoinsAsPlayer로 참가하면 좌석을 받고 player 시점 + 시스템 권한을 동시에 갖는다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', {
+      name: '호스트',
+      visibility: 'public',
+      hostJoinsAsPlayer: true,
+    });
+    expect(created.ok).toBe(true);
+    const { roomId, hostToken } = created;
+    // room:attach로 소켓을 방 채널에 연결해야 game:view 브로드캐스트를 받는다 (setupStartedRoom과 동일한 패턴)
+    await emitAck(host, 'room:attach', { roomId, token: hostToken });
+
+    // 호스트 본인의 ready 토글도 일반 참가자와 동일하게 동작해야 한다
+    const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
+    expect(hostReady.ok).toBe(true);
+
+    const names = ['갑', '을', '병'];
+    const joined: Array<{ socket: ClientSocket; token: string }> = [];
+    for (const name of names) {
+      const socket = await connect();
+      const join = await emitAck<{ playerToken: string }>(socket, 'room:join', { roomId, name });
+      expect(join.ok).toBe(true);
+      await emitAck(socket, 'room:ready', { roomId, token: join.playerToken, ready: true });
+      joined.push({ socket, token: join.playerToken });
+    }
+
+    const hostView = nextView(host);
+    const started = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(started.ok).toBe(true);
+    await hostView;
+
+    // 호스트로 재접속 — role은 'player'(좌석 있음)지만 isHost는 true다
+    const attach = await emitAck<{ role: string; isHost: boolean; myPlayerId: PlayerId | null; view: GameState }>(
+      host,
+      'room:attach',
+      { roomId, token: hostToken },
+    );
+    expect(attach.ok).toBe(true);
+    expect(attach.role).toBe('player');
+    expect(attach.isHost).toBe(true);
+    expect(attach.myPlayerId).not.toBeNull();
+    // 자기 비밀 의제가 보인다 (table 시점이었다면 전부 가려졌을 것)
+    const me = attach.view.players.find((p) => p.id === attach.myPlayerId)!;
+    expect(me.secretAgendaId).not.toBeNull();
+
+    // 겸직 호스트도 같은 토큰으로 시스템 액션(runUntilPlayerAction)을 계속 실행할 수 있다
+    const systemAction = await emitAck(host, 'game:action', {
+      roomId,
+      token: hostToken,
+      action: { type: 'runUntilPlayerAction' },
+    });
+    expect(systemAction.ok).toBe(true);
+  });
+
+  it('관전자는 MAX_SPECTATORS(5명)까지만 입장할 수 있다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
+    const { roomId } = created;
+
+    for (let i = 0; i < 5; i += 1) {
+      const socket = await connect();
+      const res = await emitAck<{ spectatorToken: string }>(socket, 'room:spectate', { roomId, name: `관전${i}` });
+      expect(res.ok).toBe(true);
+    }
+
+    const overflow = await connect();
+    const rejected = await emitAck(overflow, 'room:spectate', { roomId, name: '관전6' });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.reason).toContain('정원');
+  });
+
+  it('room:list는 공개방만 돌려주고 비공개방은 숨긴다', async () => {
+    clearRooms();
+    const publicHost = await connect();
+    const publicRoom = await emitAck<{ roomId: string }>(publicHost, 'room:create', {
+      name: '공개주최자',
+      visibility: 'public',
+    });
+    const privateHost = await connect();
+    await emitAck(privateHost, 'room:create', { name: '비공개주최자', visibility: 'private' });
+
+    const requester = await connect();
+    const list = await emitAck<{ rooms: Array<{ id: string; hostName: string }> }>(requester, 'room:list', {});
+    expect(list.ok).toBe(true);
+    expect(list.rooms.some((r) => r.id === publicRoom.roomId)).toBe(true);
+    expect(list.rooms.some((r) => r.hostName === '비공개주최자')).toBe(false);
+  });
+});
