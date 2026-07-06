@@ -112,9 +112,11 @@ function authorizeAction(room: Room, token: string, action: GameAction): string 
 
 /** 서버의 모든 소켓 이벤트를 등록한다 */
 export function registerSocketHandlers(io: Server): void {
-  // ── 비활성 방 타임아웃 검사 (1분 주기) ──
-  const IDLE_WARNING_MS = 25 * 60 * 1000; // 25분
-  const IDLE_DELETE_MS = 30 * 60 * 1000;  // 30분
+  // ── 비활성 방 타임아웃 검사 (1분 주기, 테스트 환경은 매우 짧게) ──
+  const isTest = process.env.NODE_ENV === 'test';
+  const IDLE_WARNING_MS = isTest ? 500 : 25 * 60 * 1000; // 25분 (테스트 0.5초)
+  const IDLE_DELETE_MS = isTest ? 1000 : 30 * 60 * 1000; // 30분 (테스트 1초)
+  const CHECK_INTERVAL = isTest ? 100 : 60000;
 
   setInterval(() => {
     const now = Date.now();
@@ -129,7 +131,7 @@ export function registerSocketHandlers(io: Server): void {
         io.in(roomChannel(room.id)).emit('room:idleWarning');
       }
     }
-  }, 60000);
+  }, CHECK_INTERVAL);
 
   io.on('connection', (socket: Socket) => {
     // ── 방 생성 (§21-1, 부록 A-22: 공개/비공개 선택 + 호스트는 항상 좌석을 겸함) ──

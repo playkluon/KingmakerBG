@@ -38,15 +38,36 @@ function applyImmediatePromiseReward(
   promiseId: PromiseId,
 ): { state: GameState; effects: EffectDescriptor[] } {
   const promise = catalog.promises[promiseId];
-  if (!promise || promise.effect.kind !== 'backerReward' || !backerId) {
+  if (!promise || !backerId) {
     return { state, effects: [] };
   }
-  const { resource, amount } = promise.effect;
-  const players = state.players.map((p) => {
-    if (p.id !== backerId) return p;
-    return resource === 'money' ? { ...p, money: p.money + amount } : { ...p, victoryPoints: p.victoryPoints + amount };
-  });
-  return { state: { ...state, players }, effects: [{ target: backerId, field: resource, delta: amount }] };
+
+  if (promise.effect.kind === 'backerReward') {
+    const { resource, amount } = promise.effect;
+    const players = state.players.map((p) => {
+      if (p.id !== backerId) return p;
+      return resource === 'money' ? { ...p, money: p.money + amount } : { ...p, victoryPoints: p.victoryPoints + amount };
+    });
+    return { state: { ...state, players }, effects: [{ target: backerId, field: resource, delta: amount }] };
+  }
+
+  if (promise.effect.kind === 'backerPressureToken') {
+    const { track, direction, amount } = promise.effect;
+    const key = direction === 1 ? 'plus' : 'minus';
+    const policyPressure = {
+      ...state.round.policyPressure,
+      [track]: {
+        ...state.round.policyPressure[track],
+        [key]: state.round.policyPressure[track][key] + amount,
+      },
+    };
+    return {
+      state: { ...state, round: { ...state.round, policyPressure } },
+      effects: [{ target: track, field: `pressure-${key}`, delta: amount }],
+    };
+  }
+
+  return { state, effects: [] };
 }
 
 /**

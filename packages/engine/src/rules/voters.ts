@@ -7,7 +7,7 @@ import type { ReduceResult } from '../result';
 import type { CardCatalog, VoterCard } from '../types/cards';
 import type { PlayerAction } from '../types/actions';
 import type { CandidateId, PlayerId, VoterId } from '../types/ids';
-import type { GameState } from '../types/state';
+import type { EffectDescriptor, GameState } from '../types/state';
 
 const ok = (state: GameState, log: ReturnType<typeof createLogEntry>[]): ReduceResult => ({ ok: true, state, log });
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
@@ -36,7 +36,7 @@ export function getVoterController(
 }
 
 /** §7: 인원별 공개 수(§3)만큼 유권자를 공개하고, 캠페인 액션 라운드로빈을 초기화한다 */
-export function applyRevealVotersAction(state: GameState): ReduceResult {
+export function applyRevealVotersAction(state: GameState, catalog: CardCatalog): ReduceResult {
   if (state.phase !== 'voterReveal') {
     return fail(`지금(${state.phase})은 'revealVoters'를 할 수 없습니다`);
   }
@@ -46,13 +46,31 @@ export function applyRevealVotersAction(state: GameState): ReduceResult {
   const nextPhase = getNextPhase('voterReveal', state.round.round, state.maxRounds);
   const turnOrder = [...state.players].sort((a, b) => a.seat - b.seat).map((p) => p.id);
 
+  const effects: EffectDescriptor[] = [{ target: 'game', field: 'votersRevealed', after: revealed.length }];
+
+  const voterInfluence = { ...state.round.voterInfluence };
+  for (const candidateId of state.round.candidatesRunning) {
+    const camp = state.round.camps[candidateId];
+    if (!camp || !camp.promiseId || !camp.majorBacker) continue;
+    const promise = catalog.promises[camp.promiseId];
+    if (promise?.effect.kind === 'backerInfluence') {
+      const { group, amount } = promise.effect;
+      const affectedVoters = revealed.filter((vId) => catalog.voters[vId]?.group === group);
+      for (const voterId of affectedVoters) {
+        const current = voterInfluence[voterId] ?? {};
+        voterInfluence[voterId] = { ...current, [camp.majorBacker]: (current[camp.majorBacker] ?? 0) + amount };
+        effects.push({ target: voterId, field: 'influence', delta: amount, after: camp.majorBacker });
+      }
+    }
+  }
+
   const entry = createLogEntry(
     state,
     'voterReveal',
     null,
     'revealVoters',
     `유권자 ${revealed.length}명이 공개되었습니다`,
-    [{ target: 'game', field: 'votersRevealed', after: revealed.length }],
+    effects,
   );
   const next: GameState = {
     ...appendLog(state, entry),
@@ -62,6 +80,7 @@ export function applyRevealVotersAction(state: GameState): ReduceResult {
       campaignTurnOrder: turnOrder,
       campaignActiveIndex: 0,
       campaignActionsUsed: {},
+      voterInfluence,
     },
     drawPiles: { ...state.drawPiles, voterDeck: deck },
     phase: nextPhase,

@@ -59,7 +59,7 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
     case 'autoSelectPromises':
       return applyAutoSelectPromisesAction(state);
     case 'revealVoters':
-      return applyRevealVotersAction(state);
+      return applyRevealVotersAction(state, catalog);
     case 'runUnificationTest':
       return applyRunUnificationTestAction(state);
     case 'resolveVoting':
