@@ -4,20 +4,43 @@
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type { GameAction, GameState, PlayerId } from '@kingmakers/engine';
-import { loadAnyToken, loadMyName, saveHostToken, saveMyName, savePlayerToken } from '../lib/storage';
+import {
+  loadAnyToken,
+  loadMyName,
+  saveHostToken,
+  saveMyName,
+  savePlayerToken,
+  saveSpectatorToken,
+} from '../lib/storage';
 
 const SERVER_URL: string = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001';
 const SOCKET_PATH: string = import.meta.env.VITE_SOCKET_PATH ?? '/socket.io';
 
-/** 서버 toRoomStatePayload와 동일한 형태 */
+export type RoomVisibility = 'public' | 'private';
+
+/** 서버 toRoomStatePayload와 동일한 형태 (부록 A-22: 공개방/관전자 필드 추가) */
 export interface RoomStatePayload {
   id: string;
   status: 'waiting' | 'playing';
   hostName: string;
+  visibility: RoomVisibility;
   maxPlayers: number;
   minPlayers: number;
+  maxSpectators: number;
   players: Array<{ name: string; ready: boolean; playerId: PlayerId | null }>;
+  spectators: Array<{ name: string }>;
   canStart: boolean;
+}
+
+/** 서버 listPublicRooms와 동일한 형태 (부록 A-22) */
+export interface PublicRoomSummary {
+  id: string;
+  hostName: string;
+  status: 'waiting' | 'playing';
+  playerCount: number;
+  maxPlayers: number;
+  spectatorCount: number;
+  maxSpectators: number;
 }
 
 export type Role = 'host' | 'player' | 'spectator';
@@ -33,16 +56,27 @@ interface GameStore {
   roomId: string | null;
   token: string | null;
   role: Role | null;
+  /** 방 관리 권한 여부 — 참가자를 겸한 호스트는 role이 'player'라 이 플래그로 따로 판단한다 (부록 A-22) */
+  isHost: boolean;
   myPlayerId: PlayerId | null;
   /** 로비에서 roomState.players 중 내 항목을 찾기 위한 이름 (부록 A-2: 새로고침해도 유지) */
   myName: string | null;
   roomState: RoomStatePayload | null;
   view: GameState | null;
+  /** 홈 화면 공개방 목록 (부록 A-22) — 특정 방에 붙지 않은 상태에서 조회한다 */
+  publicRooms: PublicRoomSummary[];
   /** 마지막 거부/오류 사유 — 화면이 토스트로 보여주고 지운다 */
   lastError: string | null;
 
-  createRoom(name: string): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
+  createRoom(
+    name: string,
+    options?: { visibility?: RoomVisibility; hostJoinsAsPlayer?: boolean },
+  ): Promise<{ ok: boolean; roomId?: string; reason?: string }>;
   joinRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
+  /** 관전자로 입장한다 (부록 A-22) — 게임 중인 방에도 언제든 입장할 수 있다 */
+  spectateRoom(roomId: string, name: string): Promise<{ ok: boolean; reason?: string }>;
+  /** 공개방 목록을 새로 받아온다 (부록 A-22) */
+  refreshRoomList(): Promise<void>;
   /** 방에 소켓을 붙인다 (첫 입장·새로고침·재접속 공용) */
   attach(roomId: string): Promise<{ ok: boolean; role?: Role; reason?: string }>;
   setReady(ready: boolean): Promise<void>;
@@ -86,14 +120,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roomId: null,
   token: null,
   role: null,
+  isHost: false,
   myPlayerId: null,
   myName: null,
   roomState: null,
   view: null,
+  publicRooms: [],
   lastError: null,
 
-  async createRoom(name) {
-    const res = await emitAck('room:create', { name });
+  async createRoom(name, options) {
+    const res = await emitAck('room:create', {
+      name,
+      visibility: options?.visibility,
+      hostJoinsAsPlayer: options?.hostJoinsAsPlayer,
+    });
     if (!res.ok) {
       set({ lastError: res.reason ?? '방 생성에 실패했습니다' });
       return { ok: false, reason: res.reason };
@@ -117,6 +157,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return { ok: true };
   },
 
+  async spectateRoom(roomId, name) {
+    const res = await emitAck('room:spectate', { roomId, name });
+    if (!res.ok) {
+      set({ lastError: res.reason ?? '관전 입장에 실패했습니다' });
+      return { ok: false, reason: res.reason };
+    }
+    saveSpectatorToken(roomId, String(res.spectatorToken));
+    saveMyName(roomId, name);
+    set({ myName: name });
+    return { ok: true };
+  },
+
+  async refreshRoomList() {
+    const res = await emitAck('room:list', {});
+    if (res.ok) set({ publicRooms: (res.rooms as PublicRoomSummary[]) ?? [] });
+  },
+
   async attach(roomId) {
     const token = loadAnyToken(roomId) ?? '';
     const res = await emitAck('room:attach', { roomId, token });
@@ -128,6 +185,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roomId,
       token,
       role: res.role as Role,
+      isHost: Boolean(res.isHost),
       myPlayerId: (res.myPlayerId as PlayerId | null) ?? null,
       myName: get().myName ?? loadMyName(roomId),
       roomState: res.roomState as RoomStatePayload,

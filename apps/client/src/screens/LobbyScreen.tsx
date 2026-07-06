@@ -1,5 +1,6 @@
 // 기반 스킬: skills/client-lobby-table/SKILL.md
 // 참가자 목록 + ready 상태 + 호스트 시작 버튼만 보여준다 (§21) — 인게임 보드는 여기서 그리지 않는다
+// 부록 A-22: 호스트도 좌석을 겸할 수 있어 방 관리 권한은 role이 아니라 isHost 플래그로 판단한다
 import { useEffect, useState } from 'react';
 import { navigate, toAppPath } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
@@ -14,11 +15,13 @@ interface LobbyScreenProps {
 export function LobbyScreen({ roomId }: LobbyScreenProps) {
   const roomState = useGameStore((s) => s.roomState);
   const role = useGameStore((s) => s.role);
+  const isHost = useGameStore((s) => s.isHost);
   const myName = useGameStore((s) => s.myName);
   const attach = useGameStore((s) => s.attach);
   const setReady = useGameStore((s) => s.setReady);
   const startGame = useGameStore((s) => s.startGame);
   const joinRoom = useGameStore((s) => s.joinRoom);
+  const spectateRoom = useGameStore((s) => s.spectateRoom);
   const lastError = useGameStore((s) => s.lastError);
   const clearError = useGameStore((s) => s.clearError);
 
@@ -41,15 +44,24 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
   useEffect(() => {
     if (!roomState || roomState.status !== 'playing') return;
     if (role === 'player') navigate(`/room/${roomId}/play`);
-    else if (role === 'host') navigate(`/room/${roomId}/table`);
+    else if (isHost) navigate(`/room/${roomId}/table`);
     else navigate(`/room/${roomId}/watch`);
-  }, [roomState, role, roomId]);
+  }, [roomState, role, isHost, roomId]);
 
   async function handleJoin() {
     if (!joinName.trim() || busy) return;
     setBusy(true);
     clearError();
     const res = await joinRoom(roomId, joinName.trim());
+    if (res.ok) await attach(roomId);
+    setBusy(false);
+  }
+
+  async function handleSpectate() {
+    if (!joinName.trim() || busy) return;
+    setBusy(true);
+    clearError();
+    const res = await spectateRoom(roomId, joinName.trim());
     if (res.ok) await attach(roomId);
     setBusy(false);
   }
@@ -83,8 +95,9 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
     );
   }
 
-  // 아직 참가하지 않은 방문자(토큰 없음) — 시작 전이면 이름을 입력해 참가할 수 있다
-  if (role === 'spectator' && roomState.status === 'waiting') {
+  // 아직 아무 역할로도 참가한 적 없는 방문자(로컬에 이름이 없다) — 시작 전이면 플레이어/관전자 중 골라 입장한다
+  const notYetJoined = role === 'spectator' && !myName;
+  if (notYetJoined && roomState.status === 'waiting') {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>{roomState.hostName}님의 방</h1>
@@ -98,20 +111,28 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
             onChange={(e) => setJoinName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
           />
-          <button className={board.button} disabled={!joinName.trim() || busy} onClick={handleJoin}>
-            입장하기
-          </button>
+          <div className={styles.roleChoiceRow}>
+            <button className={board.button} disabled={!joinName.trim() || busy} onClick={handleJoin}>
+              플레이어로 참가
+            </button>
+            <button className={board.buttonGhost} disabled={!joinName.trim() || busy} onClick={handleSpectate}>
+              관전자로 참가 ({roomState.spectators.length}/{roomState.maxSpectators})
+            </button>
+          </div>
         </section>
       </main>
     );
   }
 
-  const isHost = role === 'host';
-  const me = !isHost ? roomState.players.find((p) => p.name === myName) : null;
+  const me = roomState.players.find((p) => p.name === myName) ?? null;
+  const isRegisteredSpectator = role === 'spectator' && !!myName;
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>{roomState.hostName}님의 방</h1>
+      <h1 className={styles.title}>
+        {roomState.hostName}님의 방
+        <span className={styles.visibilityBadge}>{roomState.visibility === 'public' ? '공개방' : '비공개방'}</span>
+      </h1>
       <p className={styles.hint}>
         초대 코드 <span className={styles.code}>{roomId}</span>{' '}
         <button className={board.buttonGhost} onClick={handleCopy}>
@@ -138,9 +159,9 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
         </div>
 
         <div className={styles.actionsRow}>
-          {!isHost && (
+          {me && (
             <button className={board.button} onClick={() => setReady(!(me?.ready ?? false))}>
-              {me?.ready ? '준비 취소' : '준비 완료'}
+              {me.ready ? '준비 취소' : '준비 완료'}
             </button>
           )}
           {isHost && (
@@ -155,6 +176,21 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
                 : '모두 준비될 때까지 기다리는 중'}
             </span>
           )}
+          {isRegisteredSpectator && !isHost && <span className={styles.hint}>관전 중입니다</span>}
+        </div>
+      </div>
+
+      <div className={`${styles.panel} ${styles.wide}`}>
+        <h2 className={styles.panelTitle}>
+          관전자 ({roomState.spectators.length}/{roomState.maxSpectators})
+        </h2>
+        <div className={styles.participantList}>
+          {roomState.spectators.length === 0 && <p className={styles.hint}>아직 관전자가 없습니다</p>}
+          {roomState.spectators.map((s) => (
+            <div key={s.name} className={styles.participantRow}>
+              <span>{s.name}</span>
+            </div>
+          ))}
         </div>
       </div>
     </main>

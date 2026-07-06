@@ -1,7 +1,7 @@
-// 기반 스킬: skills/server-rooms/SKILL.md (부록 A-2)
-// playerToken/hostToken을 localStorage에 보관 — 새로고침·재접속 시 좌석 복원의 근거
+// 기반 스킬: skills/server-rooms/SKILL.md (부록 A-2, A-22)
+// playerToken/hostToken/spectatorToken을 localStorage에 보관 — 새로고침·재접속 시 좌석/관전 상태 복원의 근거
 
-type StorageKind = 'player' | 'host' | 'name';
+type StorageKind = 'player' | 'host' | 'spectator' | 'name';
 
 function key(roomId: string, kind: StorageKind): string {
   return `kingmakers:${roomId}:${kind}Token`;
@@ -25,9 +25,21 @@ export function loadHostToken(roomId: string): string | null {
   return localStorage.getItem(key(roomId, 'host'));
 }
 
-/** 이 방에서 내가 쓸 토큰 — 호스트 토큰 우선 (호스트가 참가자를 겸하지 않는다, §20) */
+/** 관전자 토큰 저장 (부록 A-22) */
+export function saveSpectatorToken(roomId: string, token: string): void {
+  localStorage.setItem(key(roomId, 'spectator'), token);
+}
+
+export function loadSpectatorToken(roomId: string): string | null {
+  return localStorage.getItem(key(roomId, 'spectator'));
+}
+
+/**
+ * 이 방에서 내가 쓸 토큰 — 호스트 토큰 우선.
+ * 부록 A-22: 호스트가 참가자를 겸하는 방은 hostToken을 그대로 참가자 토큰으로도 쓰므로 하나만 저장돼 있어도 충분하다.
+ */
 export function loadAnyToken(roomId: string): string | null {
-  return loadHostToken(roomId) ?? loadPlayerToken(roomId);
+  return loadHostToken(roomId) ?? loadPlayerToken(roomId) ?? loadSpectatorToken(roomId);
 }
 
 /** 내가 입력한 이름 — 새로고침 후 로비에서 "내 준비 상태"를 roomState.players에서 찾기 위해 필요하다 */
