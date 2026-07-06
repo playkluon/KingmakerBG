@@ -138,9 +138,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
           <TodoBanner state={view} myPlayerId={myPlayerId} />
           <MyResources state={view} myPlayerId={myPlayerId} />
 
-          <div className={styles.mobileActionDock}>
-            <ActionPanel state={view} myPlayerId={myPlayerId} />
-          </div>
+
 
           {isHost && (
             <div className={board.section}>
@@ -173,6 +171,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
           <div className={styles.mobileTabPanel}>
             {mobileTab === 'me' && (
               <>
+                <ActionPanel state={view} myPlayerId={myPlayerId} />
                 <RoundGoals state={view} />
                 <FinalResults state={view} />
                 <SecretAgenda state={view} myPlayerId={myPlayerId} />
