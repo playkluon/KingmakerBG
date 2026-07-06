@@ -102,41 +102,48 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
   }
 
   return (
-    <main className={styles.page}>
+    <main className={styles.playPage}>
       <EffectToast state={view} />
       <RoundSummary state={view} />
-      <div className={styles.wide}>
-        {role === 'spectator' && (
-          <div className={board.section}>
-            <button className={board.buttonGhost} disabled={leaving} onClick={handleLeave}>
-              {leaving ? '나가는 중…' : '관전 그만두기'}
-            </button>
-          </div>
-        )}
-        
         <div className={styles.desktopPlayLayout}>
-          <PhaseHeader state={view} />
-          <RoundGoals state={view} />
-          <FinalResults state={view} />
+          {/* 좌측 패널: 관전/호스트 컨트롤 및 기본 정보 */}
+          <div className={styles.playColumn}>
+            {role === 'spectator' && (
+              <div className={board.section}>
+                <button className={board.buttonGhost} disabled={leaving} onClick={handleLeave}>
+                  {leaving ? '나가는 중…' : '관전 그만두기'}
+                </button>
+              </div>
+            )}
+            <PhaseHeader state={view} />
+            <RoundGoals state={view} />
+            {canControl && (
+              <div className={board.section}>
+                <button
+                  className={board.button}
+                  disabled={locked || advancing || view.phase === 'gameEnd'}
+                  onClick={handleAdvance}
+                >
+                  {advancing ? '진행 중…' : '진행'}
+                </button>
+                {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+              </div>
+            )}
+          </div>
 
-          {canControl && (
-            <div className={board.section}>
-              <button
-                className={board.button}
-                disabled={locked || advancing || view.phase === 'gameEnd'}
-                onClick={handleAdvance}
-              >
-                {advancing ? '진행 중…' : '진행'}
-              </button>
-              {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
-            </div>
-          )}
+          {/* 중앙 패널: 메인 보드 */}
+          <div className={styles.playColumn}>
+            <CandidateBoard state={view} />
+            <VoterBoard state={view} />
+            <PolicyTracks state={view} />
+          </div>
 
-          <PolicyTracks state={view} />
-          <CandidateBoard state={view} />
-          <VoterBoard state={view} />
-          <PlayerPanels state={view} />
-          <ActionLog state={view} />
+          {/* 우측 패널: 참가자 및 로그 */}
+          <div className={styles.playColumn}>
+            <FinalResults state={view} />
+            <PlayerPanels state={view} />
+            <ActionLog state={view} />
+          </div>
         </div>
 
         <div className={styles.mobilePlayLayout}>
@@ -180,7 +187,6 @@ export function TableScreen({ roomId, forceReadOnly = false }: TableScreenProps)
             {mobileTab === 'log' && <ActionLog state={view} />}
           </div>
         </div>
-      </div>
     </main>
   );
 }

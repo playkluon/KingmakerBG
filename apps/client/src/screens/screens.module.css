@@ -9,6 +9,15 @@
   color: var(--text-main);
 }
 
+.playPage {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  color: var(--text-main);
+  overflow: hidden;
+}
+
 .title {
   font-family: var(--font-display);
   font-size: 2.5rem;
@@ -191,9 +200,38 @@
 
 /* ── Play Layouts ── */
 .desktopPlayLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(600px, 3fr) minmax(280px, 1fr);
+  gap: 20px;
+  height: 100%;
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.playColumn {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  padding-right: 8px; /* for custom scrollbar space */
+  padding-bottom: 24px;
+}
+
+/* Custom Webkit Scrollbar for Columns */
+.playColumn::-webkit-scrollbar {
+  width: 6px;
+}
+.playColumn::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+.playColumn::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+.playColumn::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .mobilePlayLayout {
@@ -212,6 +250,7 @@
     gap: 12px;
     padding-bottom: 90px; /* 하단 네비게이션 바에 가려지지 않도록 여백 확보 */
     width: 100%;
+    height: 100%;
   }
 
   .mobileTabBar {
@@ -261,6 +300,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow-y: auto;
   }
 
   .mobileActionDock {

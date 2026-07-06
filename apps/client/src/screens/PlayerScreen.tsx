@@ -96,41 +96,47 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={styles.playPage}>
       <EffectToast state={view} />
       <RoundSummary state={view} />
-      <div className={styles.wide}>
         <div className={styles.desktopPlayLayout}>
-          <PhaseHeader state={view} />
-          <RoundGoals state={view} />
-          <FinalResults state={view} />
+          {/* 좌측 패널: 개인 정보 및 액션 */}
+          <div className={styles.playColumn}>
+            <PhaseHeader state={view} />
+            <RoundGoals state={view} />
+            {isHost && (
+              <div className={board.section}>
+                <button
+                  className={board.buttonGhost}
+                  disabled={locked || advancing || view.phase === 'gameEnd'}
+                  onClick={handleAdvance}
+                >
+                  {advancing ? '진행 중…' : '호스트 도구: 진행'}
+                </button>
+                {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
+              </div>
+            )}
+            <TodoBanner state={view} myPlayerId={myPlayerId} />
+            <MyResources state={view} myPlayerId={myPlayerId} />
+            <SecretAgenda state={view} myPlayerId={myPlayerId} />
+            <ScoreRoute state={view} myPlayerId={myPlayerId} />
+            <ActionPanel state={view} myPlayerId={myPlayerId} />
+          </div>
 
-          {/* 부록 A-22: 참가자를 겸한 호스트용 수동 진행 안전망 — 평소엔 자동 진행되어 누를 필요가 없다 */}
-          {isHost && (
-            <div className={board.section}>
-              <button
-                className={board.buttonGhost}
-                disabled={locked || advancing || view.phase === 'gameEnd'}
-                onClick={handleAdvance}
-              >
-                {advancing ? '진행 중…' : '호스트 도구: 진행'}
-              </button>
-              {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
-            </div>
-          )}
+          {/* 중앙 패널: 메인 보드 */}
+          <div className={styles.playColumn}>
+            <CandidateBoard state={view} />
+            <VoterBoard state={view} />
+            <PolicyTracks state={view} />
+          </div>
 
-          <TodoBanner state={view} myPlayerId={myPlayerId} />
-          <OnboardingHints phase={view.phase} />
-          <MyResources state={view} myPlayerId={myPlayerId} />
-          <ScoreRoute state={view} myPlayerId={myPlayerId} />
-          <SecretAgenda state={view} myPlayerId={myPlayerId} />
-          <ActionPanel state={view} myPlayerId={myPlayerId} />
-
-          <PolicyTracks state={view} />
-          <CandidateBoard state={view} />
-          <VoterBoard state={view} />
-          <PlayerPanels state={view} myPlayerId={myPlayerId} />
-          <ActionLog state={view} />
+          {/* 우측 패널: 상대방 및 로그 */}
+          <div className={styles.playColumn}>
+            <FinalResults state={view} />
+            <PlayerPanels state={view} myPlayerId={myPlayerId} />
+            <ActionLog state={view} />
+            <OnboardingHints phase={view.phase} />
+          </div>
         </div>
 
         <div className={styles.mobilePlayLayout}>
@@ -186,7 +192,6 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
             {mobileTab === 'log' && <ActionLog state={view} />}
           </div>
         </div>
-      </div>
     </main>
   );
 }
