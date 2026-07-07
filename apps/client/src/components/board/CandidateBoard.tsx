@@ -161,7 +161,7 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
               const promise = camp?.promiseId ? promiseById.get(camp.promiseId) : null;
               const bonus = round.campaignVotes[id] ?? 0;
               return (
-                <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : 1, display: 'flex', flexDirection: 'column' }}>
+                <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : undefined, display: 'flex', flexDirection: 'column' }}>
                   <Tooltip 
                     content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}
                     style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
