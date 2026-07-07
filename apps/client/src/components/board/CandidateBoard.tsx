@@ -94,9 +94,21 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
   
   const [bidDraft, setBidDraft] = useState<Partial<Record<CandidateId, number>>>(() => ({ ...(myBid?.allocations ?? {}) }));
   const [submittingBid, setSubmittingBid] = useState(false);
+  const [presentedRound, setPresentedRound] = useState(-1);
 
   const totalBid = Object.values(bidDraft).reduce((sum: number, v) => sum + (v ?? 0), 0);
   const remainingBudget = me ? me.money - totalBid : 0;
+
+  const showPresentation = isBiddingPhase && presentedRound !== state.roundIndex;
+
+  if (showPresentation) {
+    return (
+      <CandidatePresentation 
+        state={state} 
+        onComplete={() => setPresentedRound(state.roundIndex)} 
+      />
+    );
+  }
 
   function adjustBid(candidateId: CandidateId, delta: number) {
     setBidDraft((prev) => ({ ...prev, [candidateId]: Math.max(0, (prev[candidateId] ?? 0) + delta) }));
