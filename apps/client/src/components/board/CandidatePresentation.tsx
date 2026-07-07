@@ -36,7 +36,7 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
     };
 
     const playAudio = async () => {
-      const audioUrl = `/audio/candidates/${currentCandidateId}.mp3`;
+      const audioUrl = `${import.meta.env.BASE_URL}audio/candidates/${currentCandidateId}.mp3`;
       
       try {
         if (audioRef.current) {
@@ -110,7 +110,7 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
         <div className={`${styles.presentationCard} ${styles.popIn}`}>
           <div className={styles.portraitWrapper}>
             <img 
-              src={`/images/candidates/${currentCandidateId}.png`} 
+              src={`${import.meta.env.BASE_URL}images/candidates/${currentCandidateId}.png`} 
               alt={candidateName(currentCandidateId)} 
               className={styles.portrait}
               onError={(e) => {
