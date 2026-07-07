@@ -103,9 +103,10 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
       <EffectToast state={view} />
       <RoundSummary state={view} />
         <div className={styles.desktopPlayLayout}>
-          {/* 좌측 패널: 개인 정보 및 액션 */}
+          {/* 좌측 1패널: 기본 상태 및 리소스 */}
           <div className={styles.playColumn}>
             <PhaseHeader state={view} />
+            <TodoBanner state={view} myPlayerId={myPlayerId} />
             <RoundGoals state={view} />
             {isHost && (
               <div className={board.section}>
@@ -119,11 +120,14 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
                 {locked && <span className={styles.hint}> 플레이어 결정을 기다리는 중에는 진행할 수 없습니다</span>}
               </div>
             )}
-            <TodoBanner state={view} myPlayerId={myPlayerId} />
             <MyResources state={view} myPlayerId={myPlayerId} />
+          </div>
+
+          {/* 좌측 2패널: 비밀 의제, 점수 루트, 액션 */}
+          <div className={styles.playColumn}>
+            <ActionPanel state={view} myPlayerId={myPlayerId} />
             <SecretAgenda state={view} myPlayerId={myPlayerId} />
             <ScoreRoute state={view} myPlayerId={myPlayerId} />
-            <ActionPanel state={view} myPlayerId={myPlayerId} />
           </div>
 
           {/* 중앙 패널: 메인 보드 */}

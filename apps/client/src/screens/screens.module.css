@@ -201,11 +201,11 @@
 /* ── Play Layouts ── */
 .desktopPlayLayout {
   display: grid;
-  grid-template-columns: minmax(280px, 1.2fr) minmax(600px, 3fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) minmax(540px, 2.5fr) minmax(240px, 1fr);
   gap: 20px;
   height: 100%;
   width: 100%;
-  max-width: 1800px;
+  max-width: 1920px;
   margin: 0 auto;
 }
 
