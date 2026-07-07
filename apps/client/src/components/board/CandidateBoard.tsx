@@ -148,37 +148,49 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
               const promise = camp?.promiseId ? promiseById.get(camp.promiseId) : null;
               const bonus = round.campaignVotes[id] ?? 0;
               return (
-                <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : 1 }}>
-                  <Tooltip content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}>
+                <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : 1, display: 'flex', flexDirection: 'column' }}>
+                  <Tooltip 
+                    content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+                  >
                     <div 
                       className={className} 
                       onClick={() => isClickable && setSelectedCardId(selectedCardId === id ? null : id)}
-                      style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                      style={{ cursor: isClickable ? 'pointer' : 'default', flex: 1, display: 'flex', flexDirection: 'column' }}
                     >
                       <div className={styles.cardName}>
                         {card?.name ?? id}
                         {isWinner && <span className={`${styles.badge} ${styles.badgeGold}`}>당선</span>}
                         {isWithdrawn && <span className={`${styles.badge} ${styles.badgeRed}`}>사퇴</span>}
                       </div>
-                    <div className={styles.cardMeta}>
-                      기본표 {card?.baseVotes ?? '?'}
-                      {bonus !== 0 && ` · 캠페인 보정 ${bonus > 0 ? '+' : ''}${bonus}`}
-                      {lastVotes?.[id] != null && ` · 최종 표 ${lastVotes[id]}`}
-                    </div>
-                    <div className={styles.cardMeta}>
-                      {CAMP_ROLE_LABELS.majorBacker} {nameOf(camp?.majorBacker)}
-                      {camp?.coBacker && ` · ${CAMP_ROLE_LABELS.coBacker} ${nameOf(camp.coBacker)}`}
-                      {camp?.organizer && ` · ${CAMP_ROLE_LABELS.organizer} ${nameOf(camp.organizer)}`}
-                    </div>
-                    <div className={styles.cardMeta}>공약: {promise ? promise.name : '선택 대기 중'}</div>
-                    <AbilityBadges abilities={card?.abilities ?? []} />
-                    {isBiddingPhase && !bidConfirmed && myPlayerId && (
-                      <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={(bidDraft[id] ?? 0) <= 0} onClick={() => adjustBid(id, -1)}>−</button>
-                        <span style={{ width: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent-primary)' }}>{bidDraft[id] ?? 0}</span>
-                        <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={remainingBudget <= 0} onClick={() => adjustBid(id, 1)}>+</button>
+                      <div className={styles.cardMeta}>
+                        기본표 {card?.baseVotes ?? '?'}
+                        {bonus !== 0 && ` · 캠페인 보정 ${bonus > 0 ? '+' : ''}${bonus}`}
+                        {lastVotes?.[id] != null && ` · 최종 표 ${lastVotes[id]}`}
                       </div>
-                    )}
+                      {isBiddingPhase ? (
+                        <div className={styles.cardMeta} style={{ whiteSpace: 'normal', lineHeight: '1.4' }}>{card?.description}</div>
+                      ) : (
+                        <>
+                          <div className={styles.cardMeta}>
+                            {CAMP_ROLE_LABELS.majorBacker} {nameOf(camp?.majorBacker)}
+                            {camp?.coBacker && ` · ${CAMP_ROLE_LABELS.coBacker} ${nameOf(camp.coBacker)}`}
+                            {camp?.organizer && ` · ${CAMP_ROLE_LABELS.organizer} ${nameOf(camp.organizer)}`}
+                          </div>
+                          <div className={styles.cardMeta}>공약: {promise ? promise.name : '선택 대기 중'}</div>
+                        </>
+                      )}
+                      
+                      <div style={{ marginTop: 'auto' }}>
+                        <AbilityBadges abilities={card?.abilities ?? []} />
+                        {isBiddingPhase && !bidConfirmed && myPlayerId && (
+                          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
+                            <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={(bidDraft[id] ?? 0) <= 0} onClick={() => adjustBid(id, -1)}>−</button>
+                            <span style={{ width: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent-primary)' }}>{bidDraft[id] ?? 0}</span>
+                            <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={remainingBudget <= 0} onClick={() => adjustBid(id, 1)}>+</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </Tooltip>
                   {selectedCardId === id && myPlayerId && (
