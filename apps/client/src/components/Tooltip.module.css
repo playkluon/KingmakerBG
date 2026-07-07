@@ -6,14 +6,14 @@
 
 .tooltipWrap {
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  padding-bottom: 8px; /* space between target and tooltip */
+  padding-top: 8px; /* space between target and tooltip */
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
+  pointer-events: none; /* No pointer events to allow clicking underneath */
   z-index: 100;
   width: max-content;
   max-width: 280px;
@@ -22,7 +22,7 @@
 .container:hover .tooltipWrap {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(-4px);
+  transform: translateX(-50%) translateY(4px);
 }
 
 .tooltip {
@@ -37,17 +37,17 @@
   line-height: 1.5;
   text-align: left;
   white-space: pre-wrap;
-  pointer-events: auto;
+  pointer-events: none; /* Important: prevents blocking clicks */
 }
 
 /* 꼬리뼈(Triangle) 구현 */
 .tooltip::after {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%; /* Move triangle to top */
   left: 50%;
   transform: translateX(-50%);
   border-width: 6px;
   border-style: solid;
-  border-color: var(--bg-panel-hover) transparent transparent transparent;
+  border-color: transparent transparent var(--bg-panel-hover) transparent;
 }
