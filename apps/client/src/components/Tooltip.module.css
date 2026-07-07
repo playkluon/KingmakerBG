@@ -26,8 +26,7 @@
 }
 
 .tooltip {
-  background: var(--bg-panel-hover);
-  backdrop-filter: var(--glass-blur);
+  background: #1a1d24; /* Solid background to prevent overlapping text from showing through */
   border: var(--glass-border);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   color: var(--text-main);
@@ -49,5 +48,5 @@
   transform: translateX(-50%);
   border-width: 6px;
   border-style: solid;
-  border-color: transparent transparent var(--bg-panel-hover) transparent;
+  border-color: transparent transparent #1a1d24 transparent;
 }
