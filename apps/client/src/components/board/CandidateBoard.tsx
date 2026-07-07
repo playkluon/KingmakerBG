@@ -115,10 +115,12 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
     (id) => state.round.camps[id]?.majorBacker === myPlayerId && state.round.camps[id]?.promiseId == null,
   ) : [];
 
+  const targetCandidates = isBiddingPhase ? round.candidatesRevealed : round.candidatesRunning;
+
   return (
     <div className={styles.section} style={{ position: 'relative', zIndex: selectedCardId ? 50 : 1 }}>
       <h2 className={styles.sectionTitle}>후보</h2>
-      {running.length === 0 ? (
+      {targetCandidates.length === 0 ? (
         <div className={styles.cardGrid}>
           {round.candidatesRevealed.map((id) => (
             <RevealedCandidateCard key={id} id={id} />
@@ -127,17 +129,18 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
       ) : (
         <>
           <div className={styles.cardGrid}>
-            {running.map((id) => {
+            {targetCandidates.map((id) => {
               const camp = round.camps[id];
               const isWinner = round.winnerCandidateId === id;
               const isWithdrawn = round.withdrawnCandidates.includes(id);
               const isClickable = canAct;
+              const isBiddingActive = isBiddingPhase && !bidConfirmed && myPlayerId;
               const className = [
                 styles.card,
                 styles.cardRunning,
                 isWinner && styles.cardWinner,
                 isWithdrawn && styles.cardWithdrawn,
-                isClickable && styles.rainbowBorderActive,
+                (isClickable || isBiddingActive) && styles.rainbowBorderActive,
               ]
                 .filter(Boolean)
                 .join(' ');
@@ -228,7 +231,7 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
             </div>
           )}
 
-          {notRunning.length > 0 && (
+          {notRunning.length > 0 && !isBiddingPhase && (
             <p className={styles.cardMeta} style={{ marginTop: '16px' }}>경매 탈락: {notRunning.map((id) => candidateName(id)).join(', ')}</p>
           )}
         </>
