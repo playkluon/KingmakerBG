@@ -15,25 +15,29 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const candidates = state.round.candidatesRevealed;
+  const currentCandidateId = candidates[currentIndex];
 
   useEffect(() => {
-    if (candidates.length === 0) {
-      onComplete();
+    if (!currentCandidateId) {
+      if (candidates.length === 0 || currentIndex >= candidates.length) {
+        onComplete();
+      }
       return;
     }
 
-    const playAudio = async () => {
-      const candidateId = candidates[currentIndex];
-      const audioUrl = `/audio/candidates/${candidateId}.mp3`;
-      let handled = false;
-      
-      const proceedNext = () => {
-        if (handled) return;
-        handled = true;
-        setIsPlaying(false);
-        handleNext();
-      };
+    let timeoutId: NodeJS.Timeout | null = null;
+    let handled = false;
 
+    const proceedNext = () => {
+      if (handled) return;
+      handled = true;
+      setIsPlaying(false);
+      handleNext();
+    };
+
+    const playAudio = async () => {
+      const audioUrl = `/audio/candidates/${currentCandidateId}.mp3`;
+      
       try {
         if (audioRef.current) {
           audioRef.current.pause();
@@ -48,27 +52,30 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
 
         audio.onerror = () => {
           setIsPlaying(false);
-          console.warn(`Audio not found for ${candidateId}, reading time 3 seconds.`);
-          setTimeout(proceedNext, 3000); // 3초 대기 후 다음으로 넘어감 (텍스트 읽을 시간)
+          console.warn(`Audio not found for ${currentCandidateId}, reading time 3 seconds.`);
+          timeoutId = setTimeout(proceedNext, 3000);
         };
 
         await audio.play();
       } catch (err) {
         setIsPlaying(false);
         console.warn('Failed to play audio:', err);
-        // Autoplay blocked or file missing (and not caught by onerror)
-        setTimeout(proceedNext, 3000);
+        timeoutId = setTimeout(proceedNext, 3000);
       }
     };
 
     playAudio();
 
     return () => {
+      handled = true; // Prevent proceedNext from running after unmount
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (audioRef.current) {
         audioRef.current.pause();
       }
     };
-  }, [currentIndex, candidates]);
+  }, [currentCandidateId]);
 
   const handleNext = () => {
     if (currentIndex < candidates.length - 1) {
