@@ -42,51 +42,22 @@ export function BidPanel({ state, myPlayerId }: BidPanelProps) {
     const finalAllocations = Object.entries(myBid?.allocations ?? {}).filter(([, v]) => (v ?? 0) > 0);
     return (
       <div className={board.section}>
-        <h2 className={board.sectionTitle}>입찰 확정됨</h2>
+        <h2 className={board.sectionTitle}>입찰 완료</h2>
         <p className={styles.hint}>
           {confirmedCount}/{state.players.length}명 확정
         </p>
-        {finalAllocations.length === 0 ? (
-          <p className={styles.hint}>이번 라운드는 입찰하지 않았습니다</p>
-        ) : (
-          finalAllocations.map(([id, amount]) => (
-            <div key={id} className={styles.actionRow}>
-              <span className={styles.actionLabel}>{candidateName(id)}</span>
-              <span>{amount}</span>
-            </div>
-          ))
-        )}
       </div>
     );
   }
 
   return (
-    <div className={`${board.section} ${board.rainbowBorderActive}`}>
-      <h2 className={board.sectionTitle}>
-        입찰 ({confirmedCount}/{state.players.length}명 확정)
-      </h2>
-      <p className={styles.hint}>
-        자금 {me.money} 중 {total} 배분 · 잔액 {remaining}
+    <div className={board.section} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px dashed var(--accent-primary)', textAlign: 'center', padding: '20px' }}>
+      <p className={styles.hint} style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+        👇 중앙 보드판에서 각 후보 카드의 하단 버튼을 조작하여 입찰을 진행하세요.
       </p>
-      <div className={styles.stepperList}>
-        {candidates.map((id) => (
-          <div key={id} className={styles.stepperRow}>
-            <span className={styles.stepperLabel}>{candidateName(id)}</span>
-            <div className={styles.stepperControls}>
-              <button className={board.buttonGhost} disabled={(draft[id] ?? 0) <= 0} onClick={() => adjust(id, -1)}>
-                −
-              </button>
-              <span className={styles.stepperValue}>{draft[id] ?? 0}</span>
-              <button className={board.buttonGhost} disabled={remaining <= 0} onClick={() => adjust(id, 1)}>
-                +
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button className={board.button} disabled={submitting || remaining < 0} onClick={handleConfirm}>
-        {submitting ? '제출 중…' : '입찰 확정'}
-      </button>
+      <p className={styles.hint} style={{ marginTop: '8px' }}>
+        ({confirmedCount}/{state.players.length}명 확정 대기 중)
+      </p>
     </div>
   );
 }

@@ -87,6 +87,34 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
   const used = myPlayerId ? (state.round.campaignActionsUsed[myPlayerId] ?? 0) : 0;
   const canAct = isMyCampaignTurn && used < 2;
 
+  const myBid = myPlayerId ? state.round.bids[myPlayerId] : undefined;
+  const isBiddingPhase = state.phase === 'auctionBidding';
+  const bidConfirmed = myBid?.confirmed ?? false;
+  const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : undefined;
+  
+  const [bidDraft, setBidDraft] = useState<Partial<Record<CandidateId, number>>>(() => ({ ...(myBid?.allocations ?? {}) }));
+  const [submittingBid, setSubmittingBid] = useState(false);
+
+  const totalBid = Object.values(bidDraft).reduce((sum: number, v) => sum + (v ?? 0), 0);
+  const remainingBudget = me ? me.money - totalBid : 0;
+
+  function adjustBid(candidateId: CandidateId, delta: number) {
+    setBidDraft((prev) => ({ ...prev, [candidateId]: Math.max(0, (prev[candidateId] ?? 0) + delta) }));
+  }
+
+  async function handleConfirmBid() {
+    if (!myPlayerId) return;
+    setSubmittingBid(true);
+    const allocations = Object.fromEntries(Object.entries(bidDraft).filter(([, v]) => (v ?? 0) > 0));
+    const placed = await sendAction({ type: 'placeBid', actor: myPlayerId, allocations });
+    if (placed.ok) await sendAction({ type: 'confirmAuctionBids', actor: myPlayerId });
+    setSubmittingBid(false);
+  }
+
+  const pendingPromises = (state.phase === 'promiseSelection' && myPlayerId) ? state.round.candidatesRunning.filter(
+    (id) => state.round.camps[id]?.majorBacker === myPlayerId && state.round.camps[id]?.promiseId == null,
+  ) : [];
+
   return (
     <div className={styles.section} style={{ position: 'relative', zIndex: selectedCardId ? 50 : 1 }}>
       <h2 className={styles.sectionTitle}>후보</h2>
@@ -141,6 +169,13 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
                     </div>
                     <div className={styles.cardMeta}>공약: {promise ? promise.name : '선택 대기 중'}</div>
                     <AbilityBadges abilities={card?.abilities ?? []} />
+                    {isBiddingPhase && !bidConfirmed && myPlayerId && (
+                      <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
+                        <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={(bidDraft[id] ?? 0) <= 0} onClick={() => adjustBid(id, -1)}>−</button>
+                        <span style={{ width: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent-primary)' }}>{bidDraft[id] ?? 0}</span>
+                        <button className={styles.buttonGhost} style={{ padding: '2px 10px', fontSize: '1rem' }} disabled={remainingBudget <= 0} onClick={() => adjustBid(id, 1)}>+</button>
+                      </div>
+                    )}
                     </div>
                   </Tooltip>
                   {selectedCardId === id && myPlayerId && (
@@ -157,9 +192,44 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
                 </div>
               );
             })}
+            
+            {pendingPromises.map((candidateId) => {
+              const options = state.round.camps[candidateId]?.promiseOptions ?? [];
+              return (
+                <div key={`promise-${candidateId}`} className={`${styles.card} ${styles.rainbowBorderActive}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className={styles.cardName}>{candidateName(candidateId)}의 공약 선택</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>
+                    {options.map((promiseId) => {
+                      const promise = promiseById.get(promiseId);
+                      return (
+                        <button
+                          key={promiseId}
+                          className={styles.buttonGhost}
+                          style={{ textAlign: 'left', padding: '8px', height: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                          onClick={() => sendAction({ type: 'selectPromise', actor: myPlayerId!, candidateId, promiseId })}
+                        >
+                          <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>{promise?.name ?? promiseId}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'normal', lineHeight: '1.3' }}>{promise?.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {isBiddingPhase && myPlayerId && !bidConfirmed && (
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', paddingRight: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>자금 {me?.money} 중 {totalBid} 배분 · 잔액 <strong style={{ color: remainingBudget < 0 ? 'var(--accent-danger)' : 'var(--text-main)' }}>{remainingBudget}</strong></span>
+              <button className={styles.button} disabled={submittingBid || remainingBudget < 0} onClick={handleConfirmBid}>
+                {submittingBid ? '제출 중…' : '입찰 확정'}
+              </button>
+            </div>
+          )}
+
           {notRunning.length > 0 && (
-            <p className={styles.cardMeta}>경매 탈락: {notRunning.map((id) => candidateName(id)).join(', ')}</p>
+            <p className={styles.cardMeta} style={{ marginTop: '16px' }}>경매 탈락: {notRunning.map((id) => candidateName(id)).join(', ')}</p>
           )}
         </>
       )}

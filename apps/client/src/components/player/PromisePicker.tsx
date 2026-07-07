@@ -27,30 +27,10 @@ export function PromisePicker({ state, myPlayerId }: PromisePickerProps) {
   }
 
   return (
-    <>
-      {pending.map((candidateId) => {
-        const options = state.round.camps[candidateId]?.promiseOptions ?? [];
-        return (
-          <div key={candidateId} className={`${board.section} ${board.rainbowBorderActive}`}>
-            <h2 className={board.sectionTitle}>{candidateName(candidateId)}의 공약 선택</h2>
-            <div className={styles.pickerGrid}>
-              {options.map((promiseId) => {
-                const promise = promiseById.get(promiseId);
-                return (
-                  <button
-                    key={promiseId}
-                    className={styles.pickerCard}
-                    onClick={() => sendAction({ type: 'selectPromise', actor: myPlayerId, candidateId, promiseId })}
-                  >
-                    <div className={styles.pickerCardTitle}>{promise?.name ?? promiseId}</div>
-                    <div className={styles.hint}>{promise?.description}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </>
+    <div className={board.section} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px dashed var(--accent-primary)', textAlign: 'center', padding: '20px' }}>
+      <p className={styles.hint} style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+        👇 중앙 보드판의 후보자 카드 옆에서 공약을 선택하세요.
+      </p>
+    </div>
   );
 }
