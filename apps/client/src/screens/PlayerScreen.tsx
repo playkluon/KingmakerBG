@@ -103,7 +103,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
       <EffectToast state={view} />
       <RoundSummary state={view} />
         <div className={styles.desktopPlayLayout}>
-          {/* 좌측 1패널: 기본 상태 및 리소스 */}
+          {/* 좌측 1패널: 기본 상태 및 리소스, 점수 루트 */}
           <div className={styles.playColumn}>
             <PhaseHeader state={view} />
             <TodoBanner state={view} myPlayerId={myPlayerId} />
@@ -121,13 +121,13 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
               </div>
             )}
             <MyResources state={view} myPlayerId={myPlayerId} />
-          </div>
-
-          {/* 좌측 2패널: 비밀 의제, 점수 루트, 액션 */}
-          <div className={styles.playColumn}>
-            <ActionPanel state={view} myPlayerId={myPlayerId} />
             <SecretAgenda state={view} myPlayerId={myPlayerId} />
             <ScoreRoute state={view} myPlayerId={myPlayerId} />
+          </div>
+
+          {/* 좌측 2패널: 액션 패널 (캠페인, 이벤트, 밀약) */}
+          <div className={styles.playColumn}>
+            <ActionPanel state={view} myPlayerId={myPlayerId} />
           </div>
 
           {/* 중앙 패널: 메인 보드 */}
