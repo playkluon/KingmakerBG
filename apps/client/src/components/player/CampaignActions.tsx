@@ -23,7 +23,7 @@ interface CampaignActionsProps {
   myPlayerId: PlayerId;
 }
 
-function costLabel(cost: CampaignActionCost): string {
+export function costLabel(cost: CampaignActionCost): string {
   const parts: string[] = [];
   if (cost.money) parts.push(`자금 ${cost.money}`);
   if (cost.organization) parts.push(`조직 ${cost.organization}`);
@@ -72,37 +72,11 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
         </button>
       </div>
 
-      <VoterTargetAction
-        label="유권자 접촉"
-        cost={costLabel(CAMPAIGN_ACTION_COSTS.contactVoter)}
-        voterIds={state.round.votersRevealed}
-        disabled={busy}
-        onRun={(voterId) => run({ type: 'contactVoter', actor: myPlayerId, voterId })}
-      />
-
-      <CandidateTargetAction
-        label="광고"
-        cost={costLabel(CAMPAIGN_ACTION_COSTS.runAd)}
-        candidates={candidates}
-        disabled={busy}
-        onRun={(candidateId) => run({ type: 'runAd', actor: myPlayerId, candidateId })}
-      />
-
-      <CandidateTargetAction
-        label="스캔들 폭로"
-        cost={costLabel(CAMPAIGN_ACTION_COSTS.reportScandal)}
-        candidates={candidates}
-        disabled={busy}
-        onRun={(candidateId) => run({ type: 'reportScandal', actor: myPlayerId, candidateId })}
-      />
-
-      <CandidateTargetAction
-        label="조건부 지지"
-        cost={costLabel(CAMPAIGN_ACTION_COSTS.conditionalSupport)}
-        candidates={candidates}
-        disabled={busy}
-        onRun={(candidateId) => run({ type: 'conditionalSupport', actor: myPlayerId, candidateId })}
-      />
+      <div className={board.section} style={{ marginTop: '16px', background: 'rgba(255, 255, 255, 0.05)', border: '1px dashed var(--accent-primary)', textAlign: 'center', padding: '20px' }}>
+        <p className={styles.hint} style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+          👇 중앙 보드판에서 대상(후보자 또는 유권자) 카드를 직접 클릭하여 캠페인 액션을 진행하세요.
+        </p>
+      </div>
 
       <PressurePolicyAction
         cost={costLabel(CAMPAIGN_ACTION_COSTS.pressurePolicy)}
@@ -120,74 +94,6 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function CandidateTargetAction({
-  label,
-  cost,
-  candidates,
-  disabled,
-  onRun,
-}: {
-  label: string;
-  cost: string;
-  candidates: CandidateId[];
-  disabled: boolean;
-  onRun: (candidateId: CandidateId) => void;
-}) {
-  const [target, setTarget] = useState<CandidateId | ''>('');
-  return (
-    <div className={styles.actionRow}>
-      <span className={styles.actionLabel}>
-        {label} <span className={styles.hint}>({cost})</span>
-      </span>
-      <select className={styles.select} value={target} onChange={(e) => setTarget(e.target.value as CandidateId)}>
-        <option value="">후보 선택</option>
-        {candidates.map((id) => (
-          <option key={id} value={id}>
-            {candidateName(id)}
-          </option>
-        ))}
-      </select>
-      <button className={board.button} disabled={disabled || !target} onClick={() => target && onRun(target)}>
-        실행
-      </button>
-    </div>
-  );
-}
-
-function VoterTargetAction({
-  label,
-  cost,
-  voterIds,
-  disabled,
-  onRun,
-}: {
-  label: string;
-  cost: string;
-  voterIds: VoterId[];
-  disabled: boolean;
-  onRun: (voterId: VoterId) => void;
-}) {
-  const [target, setTarget] = useState<VoterId | ''>('');
-  return (
-    <div className={styles.actionRow}>
-      <span className={styles.actionLabel}>
-        {label} <span className={styles.hint}>({cost})</span>
-      </span>
-      <select className={styles.select} value={target} onChange={(e) => setTarget(e.target.value as VoterId)}>
-        <option value="">유권자 선택</option>
-        {voterIds.map((id) => (
-          <option key={id} value={id}>
-            {voterById.get(id)?.name ?? id}
-          </option>
-        ))}
-      </select>
-      <button className={board.button} disabled={disabled || !target} onClick={() => target && onRun(target)}>
-        실행
-      </button>
     </div>
   );
 }

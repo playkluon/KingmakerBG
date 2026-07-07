@@ -125,8 +125,8 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
 
           {/* 중앙 패널: 메인 보드 */}
           <div className={styles.playColumn}>
-            <CandidateBoard state={view} />
-            <VoterBoard state={view} />
+            <CandidateBoard state={view} myPlayerId={myPlayerId} />
+            <VoterBoard state={view} myPlayerId={myPlayerId} />
             <PolicyTracks state={view} />
           </div>
 
@@ -186,8 +186,8 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
                 <OnboardingHints phase={view.phase} />
               </>
             )}
-            {mobileTab === 'candidates' && <CandidateBoard state={view} />}
-            {mobileTab === 'voters' && <VoterBoard state={view} />}
+            {mobileTab === 'candidates' && <CandidateBoard state={view} myPlayerId={myPlayerId} />}
+            {mobileTab === 'voters' && <VoterBoard state={view} myPlayerId={myPlayerId} />}
             {mobileTab === 'policy' && <PolicyTracks state={view} />}
             {mobileTab === 'log' && <ActionLog state={view} />}
           </div>

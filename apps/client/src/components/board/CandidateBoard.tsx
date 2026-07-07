@@ -1,13 +1,18 @@
 // 기반 스킬: skills/client-lobby-table/SKILL.md
 // 공개 후보 / 출마 후보 / 확정 공약 / 현재 표 (§22 필수 UI)
-import type { CandidateId, GameState, CandidateAbility } from '@kingmakers/engine';
+import { useState } from 'react';
+import type { CandidateId, GameState, CandidateAbility, PlayerId } from '@kingmakers/engine';
+import { CAMPAIGN_ACTION_COSTS } from '@kingmakers/engine';
 import { candidateById, candidateName, promiseById, tagLabel, groupLabel } from '../../lib/cards';
 import { CAMP_ROLE_LABELS } from '../../lib/terms';
 import { Tooltip } from '../Tooltip';
+import { useGameStore } from '../../store/gameStore';
+import { costLabel } from '../player/CampaignActions';
 import styles from './board.module.css';
 
 interface CandidateBoardProps {
   state: GameState;
+  myPlayerId?: PlayerId;
 }
 
 function parseAbilityBadge(ability: CandidateAbility) {
@@ -69,12 +74,18 @@ function AbilityBadges({ abilities }: { abilities: CandidateAbility[] }) {
 }
 
 /** 후보 마켓/출마 후보 카드 그리드 — table/player/spectator 화면이 공유한다 */
-export function CandidateBoard({ state }: CandidateBoardProps) {
+export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
+  const sendAction = useGameStore((s) => s.sendAction);
   const { round, players } = state;
   const nameOf = (id: string | null | undefined) => players.find((p) => p.id === id)?.name ?? '—';
   const running = round.candidatesRunning;
   const notRunning = round.candidatesRevealed.filter((id) => !running.includes(id));
   const lastVotes = state.lastRoundResult?.round === round.round ? state.lastRoundResult.candidateVotes : null;
+
+  const [selectedCardId, setSelectedCardId] = useState<CandidateId | null>(null);
+  const isMyCampaignTurn = state.phase === 'campaignActions' && state.round.campaignTurnOrder[state.round.campaignActiveIndex] === myPlayerId;
+  const used = myPlayerId ? (state.round.campaignActionsUsed[myPlayerId] ?? 0) : 0;
+  const canAct = isMyCampaignTurn && used < 2;
 
   return (
     <div className={styles.section}>
@@ -92,11 +103,13 @@ export function CandidateBoard({ state }: CandidateBoardProps) {
               const camp = round.camps[id];
               const isWinner = round.winnerCandidateId === id;
               const isWithdrawn = round.withdrawnCandidates.includes(id);
+              const isClickable = canAct;
               const className = [
                 styles.card,
                 styles.cardRunning,
                 isWinner && styles.cardWinner,
                 isWithdrawn && styles.cardWithdrawn,
+                isClickable && styles.rainbowBorderActive,
               ]
                 .filter(Boolean)
                 .join(' ');
@@ -104,13 +117,18 @@ export function CandidateBoard({ state }: CandidateBoardProps) {
               const promise = camp?.promiseId ? promiseById.get(camp.promiseId) : null;
               const bonus = round.campaignVotes[id] ?? 0;
               return (
-                <Tooltip key={id} content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}>
-                  <div className={className}>
-                    <div className={styles.cardName}>
-                      {card?.name ?? id}
-                      {isWinner && <span className={`${styles.badge} ${styles.badgeGold}`}>당선</span>}
-                      {isWithdrawn && <span className={`${styles.badge} ${styles.badgeRed}`}>사퇴</span>}
-                    </div>
+                <div key={id} style={{ position: 'relative' }}>
+                  <Tooltip content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}>
+                    <div 
+                      className={className} 
+                      onClick={() => isClickable && setSelectedCardId(selectedCardId === id ? null : id)}
+                      style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                    >
+                      <div className={styles.cardName}>
+                        {card?.name ?? id}
+                        {isWinner && <span className={`${styles.badge} ${styles.badgeGold}`}>당선</span>}
+                        {isWithdrawn && <span className={`${styles.badge} ${styles.badgeRed}`}>사퇴</span>}
+                      </div>
                     <div className={styles.cardMeta}>
                       기본표 {card?.baseVotes ?? '?'}
                       {bonus !== 0 && ` · 캠페인 보정 ${bonus > 0 ? '+' : ''}${bonus}`}
@@ -123,8 +141,20 @@ export function CandidateBoard({ state }: CandidateBoardProps) {
                     </div>
                     <div className={styles.cardMeta}>공약: {promise ? promise.name : '선택 대기 중'}</div>
                     <AbilityBadges abilities={card?.abilities ?? []} />
-                  </div>
-                </Tooltip>
+                    </div>
+                  </Tooltip>
+                  {selectedCardId === id && myPlayerId && (
+                    <CandidateActionPopup 
+                      candidateId={id} 
+                      myPlayerId={myPlayerId} 
+                      state={state} 
+                      onAction={async (actionType) => {
+                        setSelectedCardId(null);
+                        await sendAction({ type: actionType, actor: myPlayerId, candidateId: id } as any);
+                      }} 
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -148,5 +178,55 @@ function RevealedCandidateCard({ id }: { id: CandidateId }) {
         <AbilityBadges abilities={card?.abilities ?? []} />
       </div>
     </Tooltip>
+  );
+}
+
+function CandidateActionPopup({ 
+  candidateId, 
+  myPlayerId, 
+  state, 
+  onAction 
+}: { 
+  candidateId: CandidateId; 
+  myPlayerId: PlayerId; 
+  state: GameState; 
+  onAction: (type: 'runAd' | 'reportScandal' | 'conditionalSupport') => void;
+}) {
+  const camp = state.round.camps[candidateId];
+  const isMyCandidate = camp?.majorBacker === myPlayerId || camp?.coBacker === myPlayerId || camp?.organizer === myPlayerId;
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '100%',
+      left: '50%',
+      transform: 'translate(-50%, 8px)',
+      background: 'rgba(30, 41, 59, 0.95)',
+      backdropFilter: 'var(--glass-blur)',
+      border: '1px solid var(--accent-primary)',
+      borderRadius: '8px',
+      padding: '8px',
+      zIndex: 100,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+      minWidth: '180px',
+    }}>
+      {isMyCandidate ? (
+        <button className={styles.buttonGhost} onClick={(e) => { e.stopPropagation(); onAction('runAd'); }}>
+          📢 광고 ({costLabel(CAMPAIGN_ACTION_COSTS.runAd)})
+        </button>
+      ) : (
+        <>
+          <button className={styles.buttonGhost} onClick={(e) => { e.stopPropagation(); onAction('reportScandal'); }}>
+            💥 스캔들 폭로 ({costLabel(CAMPAIGN_ACTION_COSTS.reportScandal)})
+          </button>
+          <button className={styles.buttonGhost} onClick={(e) => { e.stopPropagation(); onAction('conditionalSupport'); }}>
+            🤝 조건부 지지 ({costLabel(CAMPAIGN_ACTION_COSTS.conditionalSupport)})
+          </button>
+        </>
+      )}
+    </div>
   );
 }
