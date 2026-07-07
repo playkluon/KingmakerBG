@@ -8,6 +8,7 @@ import { CAMP_ROLE_LABELS } from '../../lib/terms';
 import { Tooltip } from '../Tooltip';
 import { useGameStore } from '../../store/gameStore';
 import { costLabel } from '../player/CampaignActions';
+import { CandidatePresentation } from './CandidatePresentation';
 import styles from './board.module.css';
 
 interface CandidateBoardProps {
@@ -99,13 +100,13 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
   const totalBid = Object.values(bidDraft).reduce((sum: number, v) => sum + (v ?? 0), 0);
   const remainingBudget = me ? me.money - totalBid : 0;
 
-  const showPresentation = isBiddingPhase && presentedRound !== state.roundIndex;
+  const showPresentation = isBiddingPhase && presentedRound !== state.round.round;
 
   if (showPresentation) {
     return (
       <CandidatePresentation 
         state={state} 
-        onComplete={() => setPresentedRound(state.roundIndex)} 
+        onComplete={() => setPresentedRound(state.round.round)} 
       />
     );
   }

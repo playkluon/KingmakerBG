@@ -87,9 +87,9 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
 
   if (candidates.length === 0 || currentIndex >= candidates.length) return null;
 
-  const currentCandidateId = candidates[currentIndex];
+  const currentCandidateId = candidates[currentIndex]!;
   const card = candidateById.get(currentCandidateId);
-  const dialogue = candidateDialogues[currentCandidateId] || `${candidateName(currentCandidateId)}입니다. 잘 부탁드립니다!`;
+  const dialogue = candidateDialogues[currentCandidateId as string] || `${candidateName(currentCandidateId)}입니다. 잘 부탁드립니다!`;
 
   return (
     <div className={styles.overlay}>
