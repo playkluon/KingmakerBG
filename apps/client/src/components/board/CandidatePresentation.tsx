@@ -25,7 +25,15 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
     const playAudio = async () => {
       const candidateId = candidates[currentIndex];
       const audioUrl = `/audio/candidates/${candidateId}.mp3`;
+      let handled = false;
       
+      const proceedNext = () => {
+        if (handled) return;
+        handled = true;
+        setIsPlaying(false);
+        handleNext();
+      };
+
       try {
         if (audioRef.current) {
           audioRef.current.pause();
@@ -36,29 +44,20 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
         
         setIsPlaying(true);
         
-        audio.onended = () => {
-          setIsPlaying(false);
-          handleNext();
-        };
+        audio.onended = () => proceedNext();
 
         audio.onerror = () => {
-          console.warn(`Audio not found for ${candidateId}, skipping to next after 3 seconds.`);
-          setTimeout(() => {
-            if (audioRef.current === audio) {
-              setIsPlaying(false);
-              handleNext();
-            }
-          }, 3000); // 3초 대기 후 다음으로 넘어감
+          setIsPlaying(false);
+          console.warn(`Audio not found for ${candidateId}, reading time 3 seconds.`);
+          setTimeout(proceedNext, 3000); // 3초 대기 후 다음으로 넘어감 (텍스트 읽을 시간)
         };
 
         await audio.play();
       } catch (err) {
+        setIsPlaying(false);
         console.warn('Failed to play audio:', err);
-        // Autoplay blocked or file missing
-        setTimeout(() => {
-          setIsPlaying(false);
-          handleNext();
-        }, 3000);
+        // Autoplay blocked or file missing (and not caught by onerror)
+        setTimeout(proceedNext, 3000);
       }
     };
 
@@ -123,7 +122,7 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
         <div className={`${styles.speechBubble} ${styles.slideUp}`}>
           <p>{dialogue}</p>
           <div className={styles.playingIndicator}>
-            {isPlaying ? '🔊 재생 중...' : '⏳ 대기 중...'}
+            {isPlaying ? '🔊 음성 재생 중...' : '⏳ 대본 읽는 중 (자동으로 넘어갑니다)...'}
           </div>
         </div>
       </div>
