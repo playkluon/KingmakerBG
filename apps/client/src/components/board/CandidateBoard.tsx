@@ -88,7 +88,7 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
   const canAct = isMyCampaignTurn && used < 2;
 
   return (
-    <div className={styles.section}>
+    <div className={styles.section} style={{ position: 'relative', zIndex: selectedCardId ? 50 : 1 }}>
       <h2 className={styles.sectionTitle}>후보</h2>
       {running.length === 0 ? (
         <div className={styles.cardGrid}>
@@ -117,7 +117,7 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
               const promise = camp?.promiseId ? promiseById.get(camp.promiseId) : null;
               const bonus = round.campaignVotes[id] ?? 0;
               return (
-                <div key={id} style={{ position: 'relative' }}>
+                <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : 1 }}>
                   <Tooltip content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}>
                     <div 
                       className={className} 

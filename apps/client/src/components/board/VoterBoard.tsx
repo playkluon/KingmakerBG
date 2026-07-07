@@ -35,7 +35,7 @@ export function VoterBoard({ state, myPlayerId }: VoterBoardProps) {
   }
 
   return (
-    <div className={styles.section}>
+    <div className={styles.section} style={{ position: 'relative', zIndex: selectedCardId ? 50 : 1 }}>
       <h2 className={styles.sectionTitle}>유권자</h2>
       <div className={styles.cardGrid}>
         {round.votersRevealed.map((id) => {
@@ -49,7 +49,7 @@ export function VoterBoard({ state, myPlayerId }: VoterBoardProps) {
           ].filter(Boolean).join(' ');
 
           return (
-            <div key={id} style={{ position: 'relative' }}>
+            <div key={id} style={{ position: 'relative', zIndex: selectedCardId === id ? 100 : 1 }}>
               <div 
                 className={className} 
                 onClick={() => isClickable && setSelectedCardId(selectedCardId === id ? null : id)}
