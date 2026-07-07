@@ -82,6 +82,9 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
     return (
       <main className={styles.page}>
         <p className={styles.error}>{lastError ?? '게임 상태를 불러올 수 없습니다'}</p>
+        <button className={board.buttonGhost} onClick={() => navigate('/')}>
+          홈으로
+        </button>
       </main>
     );
   }
