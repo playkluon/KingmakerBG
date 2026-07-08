@@ -13,6 +13,7 @@ import {
   listPublicRooms,
   removeAiPlayer,
   setReady,
+  setTutorialDone,
   spectateRoom,
   startGame,
   toRoomStatePayload,
@@ -227,6 +228,15 @@ export function registerSocketHandlers(io: Server): void {
     // ── 준비 토글 (§21-4) ────────────────────────────────────
     socket.on('room:ready', (payload: { roomId?: string; token?: string; ready?: boolean }, cb?: unknown) => {
       const result = setReady(String(payload?.roomId ?? ''), String(payload?.token ?? ''), Boolean(payload?.ready));
+      if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
+      touchRoom(result.value.id);
+      broadcastRoomState(io, result.value);
+      ack(cb)({ ok: true });
+    });
+
+    // ── 튜토리얼 완료/건너뛰기 (부록 A-24) ────────────────────
+    socket.on('room:tutorialDone', (payload: { roomId?: string; token?: string; done?: boolean }, cb?: unknown) => {
+      const result = setTutorialDone(String(payload?.roomId ?? ''), String(payload?.token ?? ''), Boolean(payload?.done));
       if (!result.ok) return ack(cb)({ ok: false, reason: result.reason });
       touchRoom(result.value.id);
       broadcastRoomState(io, result.value);

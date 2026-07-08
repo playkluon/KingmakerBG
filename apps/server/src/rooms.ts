@@ -12,6 +12,11 @@ export interface RoomPlayer {
   ready: boolean;
   /** 서버가 자동으로 행동하는 참가자 슬롯 (부록 A-23). 사람 토큰으로 조작할 수 없다. */
   isAi: boolean;
+  /**
+   * 첫 게임 안내(튜토리얼)를 마쳤는지 (부록 A-24) — 완료하거나 건너뛰기 전에는 준비 완료로 넘어갈 수 없다.
+   * AI는 안내가 필요 없으므로 생성 시점에 항상 true다.
+   */
+  tutorialDone: boolean;
   /** 게임 시작 시 랜덤 좌석 배정으로 확정 (§21) */
   playerId: PlayerId | null;
 }
@@ -140,7 +145,9 @@ export function createRoom(hostName: string, options: CreateRoomOptions = {}): R
   
   // 부록 A-22: 예전에는 항상 참가였으나, AI 추가 시 옵션 제어 필요하므로 기본적으로 hostJoinsAsPlayer를 따른다
   const isHostPlayer = options.hostJoinsAsPlayer !== false;
-  const initialPlayers: RoomPlayer[] = isHostPlayer ? [{ token: hostToken, name, ready: false, isAi: false, playerId: null }] : [];
+  const initialPlayers: RoomPlayer[] = isHostPlayer
+    ? [{ token: hostToken, name, ready: false, isAi: false, tutorialDone: false, playerId: null }]
+    : [];
   
   if (initialPlayers.length + aiPlayerCount > MAX_PLAYERS) {
     return { ok: false, reason: `참가자 정원(${MAX_PLAYERS}명)을 초과했습니다` };
@@ -175,7 +182,7 @@ export function joinRoom(roomId: string, playerName: string): RoomResult<{ room:
   if (!name) return { ok: false, reason: '이름을 입력하세요' };
   if (isNameTaken(room, name)) return { ok: false, reason: '이미 사용 중인 이름입니다' };
 
-  const player: RoomPlayer = { token: randomUUID(), name, ready: false, isAi: false, playerId: null };
+  const player: RoomPlayer = { token: randomUUID(), name, ready: false, isAi: false, tutorialDone: false, playerId: null };
   room.players.push(player);
   return { ok: true, value: { room, token: player.token } };
 }
@@ -195,7 +202,8 @@ function nextAiName(room: Room): string {
 }
 
 function newAiPlayer(room: Room): RoomPlayer {
-  return { token: `ai-${randomUUID()}`, name: nextAiName(room), ready: true, isAi: true, playerId: null };
+  // AI는 튜토리얼이 필요 없으므로 처음부터 완료 상태로 만든다 (부록 A-24)
+  return { token: `ai-${randomUUID()}`, name: nextAiName(room), ready: true, isAi: true, tutorialDone: true, playerId: null };
 }
 
 export function addAiPlayer(roomId: string, token: string): RoomResult<Room> {
@@ -282,6 +290,19 @@ export function setReady(roomId: string, token: string, ready: boolean): RoomRes
   return { ok: true, value: room };
 }
 
+/** 튜토리얼 완료/건너뛰기 기록 (부록 A-24) — 완료 전에는 준비 완료로 넘어갈 수 없다 */
+export function setTutorialDone(roomId: string, token: string, done: boolean): RoomResult<Room> {
+  const room = rooms.get(roomId);
+  if (!room) return { ok: false, reason: '존재하지 않는 방입니다' };
+  if (room.status !== 'waiting') return { ok: false, reason: '이미 게임이 시작되었습니다' };
+  const player = room.players.find((p) => p.token === token);
+  if (!player) return { ok: false, reason: '이 방의 참가자가 아닙니다' };
+  player.tutorialDone = done;
+  // 튜토리얼을 다시 안 보기로 하면(done=false) 그 사이 눌러뒀던 준비 완료는 무효로 되돌린다
+  if (!done) player.ready = false;
+  return { ok: true, value: room };
+}
+
 /**
  * 방 나가기 (부록 A-22).
  * - 관전자는 좌석·진행 상태와 무관하게 언제든 나갈 수 있다 — 게임 결과에 영향이 없기 때문이다.
@@ -339,6 +360,10 @@ export function startGame(roomId: string, token: string): RoomResult<Room> {
   if (room.players.length < MIN_PLAYERS || room.players.length > MAX_PLAYERS) {
     return { ok: false, reason: `${MIN_PLAYERS}~${MAX_PLAYERS}명이 필요합니다 (현재 ${room.players.length}명)` };
   }
+  // 부록 A-24: 튜토리얼 미완료가 우선 사유 — "준비 안 됨"만 보이면 뭘 더 해야 하는지 알 수 없다
+  if (!room.players.every((p) => p.tutorialDone)) {
+    return { ok: false, reason: '아직 튜토리얼을 완료(또는 건너뛰기)하지 않은 참가자가 있습니다' };
+  }
   if (!room.players.every((p) => p.ready)) return { ok: false, reason: '아직 준비하지 않은 참가자가 있습니다' };
 
   // 좌석 랜덤 배정 (Fisher-Yates — 서버 측 난수는 허용, 엔진 밖이다)
@@ -375,12 +400,13 @@ export function toRoomStatePayload(room: Room) {
     maxPlayers: MAX_PLAYERS,
     minPlayers: MIN_PLAYERS,
     maxSpectators: MAX_SPECTATORS,
-    players: room.players.map((p) => ({ name: p.name, ready: p.ready, isAi: p.isAi, playerId: p.playerId })),
+    players: room.players.map((p) => ({ name: p.name, ready: p.ready, isAi: p.isAi, tutorialDone: p.tutorialDone, playerId: p.playerId })),
     spectators: room.spectators.map((s) => ({ name: s.name })),
     canStart:
       room.status === 'waiting' &&
       room.players.length >= MIN_PLAYERS &&
       room.players.length <= MAX_PLAYERS &&
+      room.players.every((p) => p.tutorialDone) &&
       room.players.every((p) => p.ready),
   };
 }

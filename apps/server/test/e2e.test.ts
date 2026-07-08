@@ -74,6 +74,7 @@ async function setupStartedRoom(): Promise<{ roomId: string; hostToken: string; 
   expect(created.ok).toBe(true);
   const { roomId, hostToken } = created;
   await emitAck(host, 'room:attach', { roomId, token: hostToken });
+  await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
   const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
   expect(hostReady.ok).toBe(true);
 
@@ -87,6 +88,7 @@ async function setupStartedRoom(): Promise<{ roomId: string; hostToken: string; 
     joined.push({ socket, token: join.playerToken, name });
   }
   for (const p of joined.slice(1)) {
+    await emitAck(p.socket, 'room:tutorialDone', { roomId, token: p.token, done: true });
     const ready = await emitAck(p.socket, 'room:ready', { roomId, token: p.token, ready: true });
     expect(ready.ok).toBe(true);
   }
@@ -397,6 +399,7 @@ describe('부록 A-17 & A-22: 호스트 겸 참가, 관전자 정원, 공개방 
     await emitAck(host, 'room:attach', { roomId, token: hostToken });
 
     // 호스트 본인의 ready 토글도 일반 참가자와 동일하게 동작해야 한다
+    await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
     const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
     expect(hostReady.ok).toBe(true);
 
@@ -406,6 +409,7 @@ describe('부록 A-17 & A-22: 호스트 겸 참가, 관전자 정원, 공개방 
       const socket = await connect();
       const join = await emitAck<{ playerToken: string }>(socket, 'room:join', { roomId, name });
       expect(join.ok).toBe(true);
+      await emitAck(socket, 'room:tutorialDone', { roomId, token: join.playerToken, done: true });
       await emitAck(socket, 'room:ready', { roomId, token: join.playerToken, ready: true });
       joined.push({ socket, token: join.playerToken });
     }
@@ -553,7 +557,10 @@ describe('부록 A-23: AI 참가자 옵션', () => {
     expect(roomBeforeStart.players).toHaveLength(4);
     expect(roomBeforeStart.players.filter((p) => p.isAi)).toHaveLength(3);
     expect(roomBeforeStart.players.filter((p) => p.isAi).every((p) => p.ready)).toBe(true);
+    // 부록 A-24: AI는 튜토리얼이 필요 없으므로 생성 즉시 완료 상태다
+    expect(roomBeforeStart.players.filter((p) => p.isAi).every((p) => p.tutorialDone)).toBe(true);
 
+    await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
     const hostReady = await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
     expect(hostReady.ok).toBe(true);
 
@@ -607,5 +614,67 @@ describe('부록 A-23: AI 참가자 옵션', () => {
     });
     expect(remove.ok).toBe(true);
     expect(remove.roomState.players.some((p) => p.isAi)).toBe(false);
+  });
+});
+
+describe('부록 A-24: 첫 게임 튜토리얼 — 전원 완료(또는 건너뛰기) 전에는 시작할 수 없다', () => {
+  it('사람 참가자가 튜토리얼을 마치기 전에는 준비를 해도 게임을 시작할 수 없고, 완료하면 시작된다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', { name: '호스트' });
+    expect(created.ok).toBe(true);
+    const { roomId, hostToken } = created;
+    await emitAck(host, 'room:attach', { roomId, token: hostToken });
+
+    const guests: Array<{ socket: ClientSocket; token: string }> = [];
+    for (const name of ['갑', '을', '병']) {
+      const socket = await connect();
+      const join = await emitAck<{ playerToken: string }>(socket, 'room:join', { roomId, name });
+      expect(join.ok).toBe(true);
+      guests.push({ socket, token: join.playerToken });
+    }
+
+    // 전원 ready만 켜고 튜토리얼은 아직 아무도 끝내지 않았다 — 시작 거부, 사유가 튜토리얼을 콕 집는다
+    await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
+    for (const g of guests) await emitAck(g.socket, 'room:ready', { roomId, token: g.token, ready: true });
+    const blocked = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.reason).toContain('튜토리얼');
+
+    // roomState에도 반영된다 — canStart는 아직 false, 각 플레이어의 tutorialDone은 false
+    const attach = await emitAck<{ roomState: { canStart: boolean; players: Array<{ tutorialDone: boolean }> } }>(host, 'room:attach', {
+      roomId,
+      token: hostToken,
+    });
+    expect(attach.roomState.canStart).toBe(false);
+    expect(attach.roomState.players.every((p) => p.tutorialDone === false)).toBe(true);
+
+    // 한 명만 끝내도 여전히 막힌다 — "전원" 조건 검증
+    await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
+    const stillBlocked = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(stillBlocked.ok).toBe(false);
+    expect(stillBlocked.reason).toContain('튜토리얼');
+
+    // 나머지도 건너뛰기(또는 완료)하면 시작된다
+    for (const g of guests) await emitAck(g.socket, 'room:tutorialDone', { roomId, token: g.token, done: true });
+    const started = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(started.ok).toBe(true);
+  });
+
+  it('AI 참가자는 튜토리얼 없이도 처음부터 완료 상태라 사람 참가자 없이 채워도 즉시 시작 가능하다', async () => {
+    clearRooms();
+    const host = await connect();
+    const created = await emitAck<{ roomId: string; hostToken: string }>(host, 'room:create', {
+      name: '호스트',
+      aiPlayerCount: 3,
+    });
+    expect(created.ok).toBe(true);
+    const { roomId, hostToken } = created;
+    await emitAck(host, 'room:attach', { roomId, token: hostToken });
+
+    await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
+    await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
+    const started = await emitAck(host, 'room:start', { roomId, token: hostToken });
+    expect(started.ok).toBe(true);
   });
 });

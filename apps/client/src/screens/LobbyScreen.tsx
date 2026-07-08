@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { navigate, toAppPath } from '../lib/router';
 import { useGameStore } from '../store/gameStore';
+import { Tutorial } from '../components/lobby/Tutorial';
 import board from '../components/board/board.module.css';
 import styles from './screens.module.css';
 
@@ -19,6 +20,7 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
   const myName = useGameStore((s) => s.myName);
   const attach = useGameStore((s) => s.attach);
   const setReady = useGameStore((s) => s.setReady);
+  const setTutorialDone = useGameStore((s) => s.setTutorialDone);
   const startGame = useGameStore((s) => s.startGame);
   const joinRoom = useGameStore((s) => s.joinRoom);
   const spectateRoom = useGameStore((s) => s.spectateRoom);
@@ -144,6 +146,19 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
   const aiPlayers = roomState.players.filter((p) => p.isAi);
   const waiting = roomState.status === 'waiting';
 
+  // 부록 A-24: 좌석은 있지만 튜토리얼을 아직 끝내지 않은 사람 — 완료/건너뛰기 전에는 준비 화면으로 넘어가지 않는다
+  if (me && !me.tutorialDone && waiting) {
+    return (
+      <main className={styles.page}>
+        <h1 className={styles.title}>{roomState.hostName}님의 방</h1>
+        {lastError && <p className={styles.error}>{lastError}</p>}
+        <div className={styles.wide}>
+          <Tutorial onDone={() => setTutorialDone(true)} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>
@@ -176,6 +191,7 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
                 {p.isAi && <span className={styles.aiBadge}>AI</span>}
               </span>
               <span className={styles.rowActions}>
+                {!p.tutorialDone && <span className={styles.readyBadge}>튜토리얼 대기</span>}
                 <span className={p.ready ? `${styles.readyBadge} ${styles.readyBadgeOn}` : styles.readyBadge}>
                   {p.ready ? '준비 완료' : '준비 중'}
                 </span>
@@ -216,7 +232,9 @@ export function LobbyScreen({ roomId }: LobbyScreenProps) {
             <span className={styles.hint}>
               {roomState.players.length < roomState.minPlayers
                 ? `최소 ${roomState.minPlayers}명이 필요합니다`
-                : '모두 준비될 때까지 기다리는 중'}
+                : roomState.players.some((p) => !p.tutorialDone)
+                  ? '모두 튜토리얼을 마칠 때까지 기다리는 중'
+                  : '모두 준비될 때까지 기다리는 중'}
             </span>
           )}
           {isRegisteredSpectator && !isHost && <span className={styles.hint}>관전 중입니다</span>}

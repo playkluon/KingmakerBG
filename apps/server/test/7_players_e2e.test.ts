@@ -50,6 +50,7 @@ describe('7인 풀게임 자동 테스트', () => {
     expect(created.ok).toBe(true);
     const { roomId, hostToken } = created;
     await emitAck(host, 'room:attach', { roomId, token: hostToken });
+    await emitAck(host, 'room:tutorialDone', { roomId, token: hostToken, done: true });
     await emitAck(host, 'room:ready', { roomId, token: hostToken, ready: true });
 
     // 2. 나머지 6명 접속 및 준비
@@ -65,6 +66,7 @@ describe('7인 풀게임 자동 테스트', () => {
       const join = await emitAck<{ playerToken: string }>(socket, 'room:join', { roomId, name });
       expect(join.ok).toBe(true);
       await emitAck(socket, 'room:attach', { roomId, token: join.playerToken });
+      await emitAck(socket, 'room:tutorialDone', { roomId, token: join.playerToken, done: true });
       await emitAck(socket, 'room:ready', { roomId, token: join.playerToken, ready: true });
       tokens[name] = join.playerToken;
       pendingClients.push({ socket, token: join.playerToken, name });

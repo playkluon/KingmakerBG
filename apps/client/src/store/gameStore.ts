@@ -29,7 +29,7 @@ export interface RoomStatePayload {
   maxPlayers: number;
   minPlayers: number;
   maxSpectators: number;
-  players: Array<{ name: string; ready: boolean; isAi: boolean; playerId: PlayerId | null }>;
+  players: Array<{ name: string; ready: boolean; isAi: boolean; tutorialDone: boolean; playerId: PlayerId | null }>;
   spectators: Array<{ name: string }>;
   canStart: boolean;
 }
@@ -86,6 +86,8 @@ interface GameStore {
   /** 방에 소켓을 붙인다 (첫 입장·새로고침·재접속 공용) */
   attach(roomId: string): Promise<{ ok: boolean; role?: Role; reason?: string }>;
   setReady(ready: boolean): Promise<void>;
+  /** 튜토리얼 완료/건너뛰기를 서버에 기록한다 (부록 A-24) — 전원 완료 전엔 게임을 시작할 수 없다 */
+  setTutorialDone(done: boolean): Promise<void>;
   addAiPlayer(): Promise<void>;
   removeAiPlayer(name?: string): Promise<void>;
   startGame(): Promise<void>;
@@ -236,6 +238,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!roomId || !token) return;
     const res = await emitAck('room:ready', { roomId, token, ready });
     if (!res.ok) set({ lastError: res.reason ?? '준비 상태 변경에 실패했습니다' });
+  },
+
+  async setTutorialDone(done) {
+    const { roomId, token } = get();
+    if (!roomId || !token) return;
+    const res = await emitAck('room:tutorialDone', { roomId, token, done });
+    if (!res.ok) set({ lastError: res.reason ?? '튜토리얼 상태 저장에 실패했습니다' });
   },
 
   async addAiPlayer() {
