@@ -522,3 +522,55 @@
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+@media (max-width: 720px) {
+  .banner {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+  
+  .bannerTitle {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+  
+  .bannerBody {
+    font-size: 0.9rem;
+  }
+
+  .resourceGrid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    /* Custom Scrollbar for horizontal scrolling */
+    scrollbar-width: thin;
+  }
+
+  .resourceGrid::-webkit-scrollbar {
+    height: 4px;
+  }
+  .resourceGrid::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  .resourceGrid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+
+  .resourceItem {
+    flex: 1 0 auto;
+    padding: 6px 8px;
+    min-width: 70px;
+  }
+
+  .resourceLabel {
+    font-size: 0.7rem;
+  }
+
+  .resourceValue {
+    font-size: 1.1rem;
+  }
+}

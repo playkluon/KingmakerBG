@@ -608,11 +608,11 @@
   .phaseHeader {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 4px 10px;
+    gap: 4px 8px;
     align-items: center;
-    border-radius: 7px;
-    padding: 9px 10px;
-    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
   }
 
   .phaseRound {

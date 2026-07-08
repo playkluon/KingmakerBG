@@ -149,9 +149,6 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
         <div className={styles.mobilePlayLayout}>
           <PhaseHeader state={view} />
           <TodoBanner state={view} myPlayerId={myPlayerId} />
-          <MyResources state={view} myPlayerId={myPlayerId} />
-
-
 
           {isHost && (
             <div className={board.section}>
@@ -184,6 +181,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
           <div className={styles.mobileTabPanel}>
             {mobileTab === 'me' && (
               <>
+                <MyResources state={view} myPlayerId={myPlayerId} />
                 <ActionPanel state={view} myPlayerId={myPlayerId} />
                 <RoundGoals state={view} />
                 <FinalResults state={view} />
