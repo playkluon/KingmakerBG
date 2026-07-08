@@ -8,12 +8,14 @@ import type {
   CandidateId,
   GameAction,
   GameState,
+  PartyId,
   PlayerId,
   PolicyDirection,
   PolicyTrackId,
   VoterId,
 } from '@kingmakers/engine';
 import { useGameStore } from '../../store/gameStore';
+import { CATALOG } from '../../lib/catalog';
 import { candidateName, TRACK_LABELS, voterById } from '../../lib/cards';
 import board from '../board/board.module.css';
 import styles from './player.module.css';
@@ -84,6 +86,13 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
         onRun={(track, direction) => run({ type: 'pressurePolicy', actor: myPlayerId, track, direction })}
       />
 
+      <ChangePartyAction
+        state={state}
+        myPlayerId={myPlayerId}
+        disabled={busy}
+        onRun={(partyId) => run({ type: 'changeParty', actor: myPlayerId, partyId })}
+      />
+
       {POLL_ENABLED && (
         <div className={styles.actionRow}>
           <span className={styles.actionLabel}>
@@ -94,6 +103,54 @@ export function CampaignActions({ state, myPlayerId }: CampaignActionsProps) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ChangePartyAction({
+  state,
+  myPlayerId,
+  disabled,
+  onRun,
+}: {
+  state: GameState;
+  myPlayerId: PlayerId;
+  disabled: boolean;
+  onRun: (partyId: PartyId) => void;
+}) {
+  const counts = new Map<string, number>();
+  for (const p of state.players) {
+    if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
+  }
+
+  const myParty = state.players.find((p) => p.id === myPlayerId)?.party ?? null;
+  // 내 정당과 정원(2명)이 찬 정당은 옮길 수 없다 — 엔진 검증과 같은 기준으로 목록에서 미리 걸러 준다
+  const availableParties = Object.values(CATALOG.parties).filter((p) => p.id !== myParty && (counts.get(p.id) ?? 0) < 2);
+  const [partyId, setPartyId] = useState<string>(availableParties[0]?.id ?? '');
+
+  if (availableParties.length === 0) return null;
+  const selected = availableParties.some((p) => p.id === partyId) ? partyId : availableParties[0]!.id;
+
+  return (
+    <div className={styles.actionRow} style={{ borderColor: 'var(--accent-danger)' }}>
+      <span className={styles.actionLabel} style={{ color: 'var(--accent-danger)' }}>
+        당적 변경 (탈당) <span className={styles.hint}>(평판 1 소모, 새 정당 손패로 교체)</span>
+      </span>
+      <select className={styles.select} value={selected} onChange={(e) => setPartyId(e.target.value)}>
+        {availableParties.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <button
+        className={board.button}
+        disabled={disabled || !selected}
+        onClick={() => onRun(selected as PartyId)}
+        style={{ backgroundColor: 'var(--accent-danger)' }}
+      >
+        실행
+      </button>
     </div>
   );
 }

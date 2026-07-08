@@ -1,6 +1,6 @@
 // 기반 스킬: skills/engine-core/SKILL.md
 // §19 시스템 액션(16종) + §20 플레이어 액션(17종)
-import type { CandidateId, EventId, PlayerId, PolicyDirection, PolicyTrackId, PromiseId, VoterId } from './ids';
+import type { CandidateId, EventId, PlayerId, PolicyDirection, PolicyTrackId, PromiseId, VoterId, PartyId } from './ids';
 import type { SecretPactPromise, UnificationTerm } from './state';
 
 /** §8: 기본은 동시 비공개 입찰, 공개 순차는 튜토리얼/디버그 전용 */
@@ -13,8 +13,8 @@ export type SystemAction =
   | { type: 'runSystemStep' }
   | { type: 'runUntilPlayerAction' }
   | { type: 'advancePhase' }
-  | { type: 'revealIssue' }
-  | { type: 'revealCandidates' }
+  | { type: 'revealFirstIssues' }
+  | { type: 'revealSecondIssues' }
   | { type: 'generateRandomBids' } // 디버그 전용 (부록 A-4)
   | { type: 'resolveAuction' }
   | { type: 'autoSelectPromises' }
@@ -27,6 +27,8 @@ export type SystemAction =
 
 // ── 플레이어 액션 (§20) — 전부 actor: PlayerId를 가진다 ─────────
 export type PlayerAction =
+  | { type: 'selectParty'; actor: PlayerId; partyId: PartyId }
+  | { type: 'proposeCandidate'; actor: PlayerId; candidateId: CandidateId }
   | { type: 'placeBid'; actor: PlayerId; allocations: Partial<Record<CandidateId, number>> }
   | { type: 'confirmAuctionBids'; actor: PlayerId }
   | { type: 'selectPromise'; actor: PlayerId; candidateId: CandidateId; promiseId: PromiseId }
@@ -36,6 +38,7 @@ export type PlayerAction =
   | { type: 'fundraise'; actor: PlayerId }
   | { type: 'reportScandal'; actor: PlayerId; candidateId: CandidateId }
   | { type: 'conditionalSupport'; actor: PlayerId; candidateId: CandidateId }
+  | { type: 'changeParty'; actor: PlayerId; partyId: PartyId }
   | {
       type: 'proposeUnification';
       actor: PlayerId;

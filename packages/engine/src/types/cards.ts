@@ -8,6 +8,7 @@ import type {
   CandidateId,
   EventId,
   IssueId,
+  PartyId,
   PolicyDirection,
   PolicyTrackId,
   PromiseId,
@@ -41,6 +42,8 @@ export interface CandidateCard {
   id: CandidateId;
   name: string;
   description: string;
+  /** 소속 정당 (개편안 A) — 플레이어 손패 구성의 기준. 실카드는 항상 갖고, 엔진 자체 테스트의 placeholder만 생략한다 */
+  party?: PartyId;
   baseVotes: number;
   leaningTags: string[];
   supportedVoterGroups: VoterGroupId[];
@@ -80,6 +83,11 @@ export interface IssueCard {
   id: IssueId;
   name: string;
   description: string;
+  /**
+   * 개편안 B: 이 이슈가 부각시키는 정책 계열(targetTag)과 매칭되는 후보에게 주는 표 보너스.
+   * VP 보너스는 두지 않는다 — 이슈는 표심(투표 집계)에만 영향을 주고, 점수는 당선 결과로만 발생한다.
+   */
+  advantage?: { targetTag: string; voteBonus: number };
 }
 
 /**
@@ -121,6 +129,40 @@ export interface SecretAgendaCard {
   points: number;
 }
 
+/**
+ * 정당 패시브 효과 (개편안 A) — 자유 텍스트가 아니라 판별 가능한 유니온으로 정의한다 (CLAUDE.md 코딩 규칙).
+ * 엔진은 이 구조화된 값만 읽는다 — 정당 id를 엔진 코드에 하드코딩하지 않는다.
+ */
+export type PartyPassive =
+  /** 특정 캠페인 액션의 자원 비용 증감 (양수 = 비용 증가, 음수 = 할인) */
+  | { kind: 'actionCostDelta'; action: 'contactVoter' | 'runAd' | 'pressurePolicy' | 'reportScandal'; resource: 'money' | 'organization'; delta: number }
+  /** 모금(fundraise)으로 얻는 자금 증감 */
+  | { kind: 'fundraiseYieldDelta'; delta: number }
+  /** 광고(runAd) 집행 시 평판 획득 */
+  | { kind: 'adReputationGain'; amount: number }
+  /** 조건부 지지 성공 시(§15) 추가 자금 지급 — VP가 아니라 자금 보상이다 */
+  | { kind: 'conditionalSupportBonusMoney'; amount: number }
+  /** 지정 계열(targetTag) 이슈가 공개될 때마다 조직력 획득 */
+  | { kind: 'issueTagOrganizationGain'; targetTag: string; amount: number }
+  /** 지정 계열 공약을 (majorBacker로서) 선택하면 자금 차감 */
+  | { kind: 'promiseTagMoneyCost'; tags: string[]; amount: number }
+  /** 지정 계열 공약을 (majorBacker로서) 선택하면 평판 차감 */
+  | { kind: 'promiseTagReputationLoss'; tags: string[]; amount: number }
+  /** 지정 계열 공약은 (majorBacker로서) 선택 불가 */
+  | { kind: 'promiseTagRestriction'; tags: string[] };
+
+/** 정당 카드 (개편안 A) — 고유 색상·패시브. passives가 규칙, advantage/disadvantage 텍스트는 UI 표시용이다 */
+export interface PartyCard {
+  id: PartyId;
+  name: string;
+  description: string;
+  /** CSS에서 그대로 쓸 수 있는 색상 값 (hex) */
+  color: string;
+  passiveAdvantage: string;
+  passiveDisadvantage: string;
+  passives: PartyPassive[];
+}
+
 /** 카드 콘텐츠 조회 테이블. 호출자(테스트/서버)가 packages/data로 채워 reduce()에 주입한다 */
 export interface CardCatalog {
   candidates: Record<CandidateId, CandidateCard>;
@@ -130,4 +172,6 @@ export interface CardCatalog {
   candidateEvents: Record<EventId, EventCard>;
   voterEvents: Record<EventId, EventCard>;
   agendas: Record<AgendaId, SecretAgendaCard>;
+  /** 정당 7종 — 엔진 자체 테스트는 생략할 수 있어 optional로 둔다 */
+  parties?: Record<PartyId, PartyCard>;
 }

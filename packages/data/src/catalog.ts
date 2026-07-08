@@ -8,6 +8,7 @@ import { ISSUES } from './issues';
 import { PROMISES } from './promises';
 import { VOTERS } from './voters';
 import { VOTER_EVENTS } from './voterEvents';
+import { PARTIES } from './parties';
 
 function byId<T extends { id: string }>(items: T[]): Record<string, T> {
   return Object.fromEntries(items.map((item) => [item.id, item]));
@@ -23,5 +24,6 @@ export function buildCardCatalog() {
     candidateEvents: byId(CANDIDATE_EVENTS),
     voterEvents: byId(VOTER_EVENTS),
     agendas: byId(AGENDAS),
+    parties: byId(PARTIES),
   };
 }

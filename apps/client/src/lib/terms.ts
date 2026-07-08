@@ -30,7 +30,10 @@ export const EFFECT_FIELD_LABELS: Record<string, string> = {
   unificationTransfer: '단일화 이전 표',
   assignedTo: '유권자 배정',
   winner: '당선',
-  issueId: '이슈 공개',
+  firstIssues: '사전 이슈 공개',
+  secondIssues: '반전 이슈 공개',
+  party: '정당 가입',
+  partyValue: '정당 주가',
   candidatesRevealed: '후보 공개',
   candidatesRunning: '출마 확정',
   votersRevealed: '유권자 공개',
@@ -44,6 +47,8 @@ export const EFFECT_FIELD_LABELS: Record<string, string> = {
   policyPressureSuccess: '정책 압박 성공',
   voterSupportWinner: '유권자 지지 보너스',
   kingmaker: '킹메이커 보너스',
+  // 코어 루프 개편안 C: 당선 정당 주가 배당
+  partyValueBonus: '정당 주가 배당',
 };
 
 /** 'pressure-plus' / 'pressure-minus'처럼 접두어+동적 값으로 만들어지는 field를 위한 접두어 매칭 */

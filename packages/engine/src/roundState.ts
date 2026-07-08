@@ -15,7 +15,9 @@ function createEmptyPolicyPressure(): Record<PolicyTrackId, PolicyPressure> {
 export function createInitialRoundState(round: number): RoundState {
   return {
     round,
-    issueId: null,
+    firstIssues: [],
+    secondIssues: [],
+    proposals: {},
     candidatesRevealed: [],
     candidatesRunning: [],
     votersRevealed: [],

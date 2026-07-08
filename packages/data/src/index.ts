@@ -5,13 +5,14 @@
 export const DATA_VERSION = '0.1.0';
 
 // ── 카드 데이터 ─────────────────────────────────────────────
-export { AGENDAS } from './agendas';
-export { CANDIDATES } from './candidates';
-export { CANDIDATE_EVENTS } from './candidateEvents';
-export { ISSUES } from './issues';
-export { PROMISES } from './promises';
-export { VOTERS } from './voters';
-export { VOTER_EVENTS } from './voterEvents';
+export * from './candidates';
+export * from './promises';
+export * from './voters';
+export * from './issues';
+export * from './agendas';
+export * from './candidateEvents';
+export * from './voterEvents';
+export * from './parties';
 
 // ── 엔진 연동 ───────────────────────────────────────────────
 export { buildCardCatalog } from './catalog';
@@ -29,6 +30,9 @@ export {
   EventIdSchema,
   IssueCardSchema,
   IssueIdSchema,
+  PartyCardSchema,
+  PartyIdSchema,
+  PartyPassiveSchema,
   PolicyDirectionSchema,
   PolicyReactionTagSchema,
   PolicyTrackIdSchema,
@@ -48,6 +52,8 @@ export type {
   EventCard,
   EventEffect,
   IssueCard,
+  PartyCard,
+  PartyPassive,
   PromiseCard,
   PromiseEffect,
   SecretAgendaCard,

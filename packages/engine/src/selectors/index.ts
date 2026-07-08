@@ -44,6 +44,18 @@ function runningMajorBackers(state: GameState): PlayerId[] {
  */
 export function getPendingDecision(state: GameState): PendingDecision | null {
   switch (state.phase) {
+    case 'partySelection': {
+      // 개편안 A: 아직 정당을 고르지 않은 전원이 동시에 결정한다
+      const actors = state.players.filter((p) => p.party === null).map((p) => p.id);
+      return { actors, description: '가입할 정당을 선택하세요 (정당당 최대 2명)' };
+    }
+    case 'candidateProposal': {
+      // 개편안 B: 손패가 있고 아직 제안하지 않은 전원 — 손패가 빈 플레이어는 자동 면제된다
+      const actors = state.players
+        .filter((p) => state.round.proposals[p.id] == null && p.hand.length > 0)
+        .map((p) => p.id);
+      return { actors, description: '공개된 이슈를 보고 손패에서 후보 1명을 골라 제안하세요' };
+    }
     case 'auctionBidding': {
       const actors = state.players.filter((p) => !state.round.bids[p.id]?.confirmed).map((p) => p.id);
       return { actors, description: '후보에게 자금을 배분하고 입찰을 확정하세요' };

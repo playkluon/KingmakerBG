@@ -5,13 +5,15 @@ import { reduce } from '../src/reducer';
 import { setupGame } from '../src/setup';
 import { emptyCatalog, testDecks } from './fixtures';
 
-describe('phase 정의 (§18)', () => {
-  it('phase 16종이 GAME_SPEC.md §18 순서와 정확히 일치한다', () => {
+describe('phase 정의 (§18 + 코어 루프 개편안 A·B)', () => {
+  it('phase 18종이 개편된 순서와 정확히 일치한다', () => {
     expect(PHASE_ORDER).toEqual([
       'setup',
+      'partySelection',
       'income',
-      'issueReveal',
-      'candidateReveal',
+      'firstIssueReveal',
+      'candidateProposal',
+      'secondIssueReveal',
       'auctionBidding',
       'auctionResolved',
       'promiseSelection',
@@ -27,10 +29,10 @@ describe('phase 정의 (§18)', () => {
     ]);
   });
 
-  it('§7의 플레이어 결정 단계만 requiresPlayerDecision=true다', () => {
+  it('플레이어 결정 단계만 requiresPlayerDecision=true다 (정당 선택·후보 제안 포함)', () => {
     const decisionPhases = PHASE_ORDER.filter((id) => PHASES[id].requiresPlayerDecision);
     expect(decisionPhases.sort()).toEqual(
-      ['auctionBidding', 'campaignActions', 'electionEffectSelection', 'promiseSelection', 'unification'].sort(),
+      ['auctionBidding', 'campaignActions', 'candidateProposal', 'electionEffectSelection', 'partySelection', 'promiseSelection', 'unification'].sort(),
     );
   });
 });
@@ -49,7 +51,10 @@ describe('getNextPhase (§7, §16 라운드 순환)', () => {
   });
 
   it('일반 phase는 PHASE_ORDER상 다음 항목으로 이동한다', () => {
-    expect(getNextPhase('income', 1, 5)).toBe('issueReveal');
+    expect(getNextPhase('income', 1, 5)).toBe('firstIssueReveal');
+    expect(getNextPhase('firstIssueReveal', 1, 5)).toBe('candidateProposal');
+    expect(getNextPhase('candidateProposal', 1, 5)).toBe('secondIssueReveal');
+    expect(getNextPhase('secondIssueReveal', 1, 5)).toBe('auctionBidding');
     expect(getNextPhase('auctionResolved', 1, 5)).toBe('promiseSelection');
   });
 });
@@ -82,7 +87,8 @@ describe('잘못된 phase의 액션 거부 (§28)', () => {
     const goodResult = reduce(state, { type: 'startGame' }, emptyCatalog());
     expect(goodResult.ok).toBe(true);
     if (goodResult.ok) {
-      expect(goodResult.state.phase).toBe('income');
+      // 개편안 A: 게임 시작 직후는 income이 아니라 정당 선택이다
+      expect(goodResult.state.phase).toBe('partySelection');
     }
   });
 });

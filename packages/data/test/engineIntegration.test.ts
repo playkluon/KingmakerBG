@@ -1,7 +1,7 @@
 // 기반 스킬: skills/card-data/SKILL.md
 // DEV_PLAN.md M2 완료 조건: "Phase 1의 setup.ts가 실데이터로 교체되어도 결정성 테스트 유지"
 import { reduce, setupGame } from '@kingmakers/engine';
-import type { CardCatalog, DrawPiles, GameAction, PlayerId } from '@kingmakers/engine';
+import type { CardCatalog, DrawPiles, GameAction, GameState, PartyId, PlayerId } from '@kingmakers/engine';
 import { describe, expect, it } from 'vitest';
 import { AGENDAS } from '../src/agendas';
 import { buildCardCatalog } from '../src/catalog';
@@ -31,6 +31,32 @@ function realDecks(): DrawPiles {
 
 const players = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
 
+/**
+ * 개편안 A·B 결정 지점 통과 헬퍼: 좌석 순서대로 party-01..party-04에 가입하고,
+ * 각자 손패 첫 장을 제안한 뒤 auctionBidding까지 자동 진행한다 (전부 결정적).
+ */
+function walkPartyAndProposal(input: GameState, catalog: CardCatalog): GameState {
+  let state = input;
+  const step = (action: GameAction) => {
+    const result = reduce(state, action, catalog);
+    if (!result.ok) throw new Error(`${action.type} 실패: ${result.reason}`);
+    state = result.state;
+  };
+  if (state.phase === 'partySelection') {
+    state.players.forEach((p, i) => step({ type: 'selectParty', actor: p.id, partyId: `party-0${i + 1}` as PartyId }));
+    step({ type: 'runUntilPlayerAction' });
+  }
+  if (state.phase === 'candidateProposal') {
+    for (const p of [...state.players]) {
+      const current = state.players.find((x) => x.id === p.id)!;
+      if (state.round.proposals[p.id] || current.hand.length === 0) continue;
+      step({ type: 'proposeCandidate', actor: p.id, candidateId: current.hand[0]! });
+    }
+    step({ type: 'runUntilPlayerAction' });
+  }
+  return state;
+}
+
 describe('실카드 데이터 + 엔진 setupGame 통합', () => {
   it('실카드 ID로 초기화해도 같은 seed는 같은 결과를 만든다', () => {
     const a = setupGame({ seed: 555, players, decks: realDecks() });
@@ -43,7 +69,7 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
     expect(state.drawPiles.candidateDeck).toHaveLength(21);
     expect(state.drawPiles.promiseDeck).toHaveLength(30);
     expect(state.drawPiles.voterDeck).toHaveLength(48);
-    expect(state.drawPiles.issueDeck).toHaveLength(15);
+    expect(state.drawPiles.issueDeck).toHaveLength(ISSUES.length);
     expect(state.drawPiles.candidateEventDeck).toHaveLength(30);
     expect(state.drawPiles.voterEventDeck).toHaveLength(30);
     expect(state.drawPiles.agendaDeck).toHaveLength(16 - players.length);
@@ -58,25 +84,25 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
     });
   });
 
-  it('실카드 데이터로도 startGame → runUntilPlayerAction 시퀀스가 결정적으로 재생된다', () => {
-    const sequence: GameAction[] = [{ type: 'startGame' }, { type: 'runUntilPlayerAction' }];
-
+  it('실카드 데이터로도 시작 시퀀스(정당 선택→후보 제안 포함)가 결정적으로 재생된다', () => {
     const run = () => {
       let state = setupGame({ seed: 2026, players, decks: realDecks() });
-      for (const action of sequence) {
+      for (const action of [{ type: 'startGame' } as GameAction, { type: 'runUntilPlayerAction' } as GameAction]) {
         const result = reduce(state, action, typedCatalog);
         if (!result.ok) throw new Error(`재생 실패: ${result.reason}`);
         state = result.state;
       }
-      return state;
+      return walkPartyAndProposal(state, typedCatalog);
     };
 
     const run1 = run();
     const run2 = run();
     expect(run1).toEqual(run2);
     expect(run1.phase).toBe('auctionBidding');
-    // 실제 후보/이슈 ID가 공개되었는지 확인 (placeholder가 아니라 진짜 카드)
-    expect(run1.round.issueId).toMatch(/^issue-/);
+    // 실제 이슈/후보 ID가 공개되었는지 확인 (placeholder가 아니라 진짜 카드)
+    expect(run1.round.firstIssues).toHaveLength(2);
+    expect(run1.round.secondIssues).toHaveLength(2);
+    [...run1.round.firstIssues, ...run1.round.secondIssues].forEach((id) => expect(id).toMatch(/^issue-/));
     run1.round.candidatesRevealed.forEach((id) => expect(id).toMatch(/^candidate-/));
   });
 
@@ -84,9 +110,9 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
     let state = setupGame({ seed: 77, players, decks: realDecks() });
     const start = reduce(state, { type: 'startGame' }, typedCatalog);
     if (!start.ok) throw new Error(start.reason);
-    const toAuction = reduce(start.state, { type: 'runUntilPlayerAction' }, typedCatalog);
-    if (!toAuction.ok) throw new Error('runUntilPlayerAction 실패');
-    state = toAuction.state;
+    const toParty = reduce(start.state, { type: 'runUntilPlayerAction' }, typedCatalog);
+    if (!toParty.ok) throw new Error('runUntilPlayerAction 실패');
+    state = walkPartyAndProposal(toParty.state, typedCatalog);
 
     // 4명이 서로 다른 공개 후보에 명확한 순위로 입찰해 3명 출마를 확정한다
     const [c0, c1, c2, c3] = state.round.candidatesRevealed;
@@ -153,14 +179,17 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
     step({ type: 'runUntilPlayerAction' });
 
     while (state.phase !== 'gameEnd') {
+      // 라운드 1은 정당 선택부터, 라운드 2+는 후보 제안부터 (개편안 A·B)
+      state = walkPartyAndProposal(state, typedCatalog);
       expect(state.phase).toBe('auctionBidding');
-      expect(state.round.candidatesRevealed).toHaveLength(5);
+      // 공개 후보 = 제안한 플레이어 수(최대 4) — 정당 후보가 모두 당선되면 줄어들 수 있다
+      expect(state.round.candidatesRevealed.length).toBeGreaterThanOrEqual(1);
 
-      const [c0, c1, c2, c3] = state.round.candidatesRevealed;
-      step({ type: 'placeBid', actor: 'player-0', allocations: { [c0!]: 6 } });
-      step({ type: 'placeBid', actor: 'player-1', allocations: { [c1!]: 4 } });
-      step({ type: 'placeBid', actor: 'player-2', allocations: { [c2!]: 3 } });
-      step({ type: 'placeBid', actor: 'player-3', allocations: { [c3!]: 2 } });
+      const revealed = state.round.candidatesRevealed;
+      const amounts = [6, 4, 3, 2] as const;
+      (['player-0', 'player-1', 'player-2', 'player-3'] as const).forEach((actor, i) => {
+        step({ type: 'placeBid', actor, allocations: { [revealed[i % revealed.length]!]: amounts[i]! } });
+      });
       for (const actor of ['player-0', 'player-1', 'player-2', 'player-3'] as const) {
         step({ type: 'confirmAuctionBids', actor });
       }
@@ -205,6 +234,7 @@ describe('실카드 데이터 + 엔진 setupGame 통합', () => {
             ? { track: card.electionEffect.options[0]!.track, direction: card.electionEffect.options[0]!.direction }
             : { track: 'economy' as const, direction: 1 as const };
         step({ type: 'selectElectionPolicyMove', actor: backer, ...choice });
+        step({ type: 'runUntilPlayerAction' }); // 정책 반영→정산→다음 라운드(또는 gameEnd)까지 자동 진행
       }
     }
 

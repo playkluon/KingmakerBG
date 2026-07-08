@@ -70,6 +70,9 @@ export function setupGame(options: SetupOptions): GameState {
     contractsFulfilled: 0,
     voterEventHand: [],
     betrayedSecretPact: false,
+    // 개편안 A: 정당·손패는 partySelection phase에서 selectParty가 채운다
+    party: null,
+    hand: [],
   }));
 
   return {
@@ -83,6 +86,8 @@ export function setupGame(options: SetupOptions): GameState {
     drawPiles,
     auctionMode: 'simultaneousBlind',
     policyTracks: { economy: 0, labor: 0, society: 0, industry: 0, foreign: 0 },
+    // 개편안 C: 정당 주가는 0에서 시작해 당선 정당만 누적 상승한다
+    partyValues: {},
     actionLog: [],
     roundHistory: [],
     lastRoundResult: null,

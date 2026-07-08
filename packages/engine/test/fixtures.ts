@@ -4,7 +4,7 @@
 import { reduce } from '../src/reducer';
 import { buildPlaceholderIds, setupGame } from '../src/setup';
 import type { CardCatalog } from '../src/types/cards';
-import type { AgendaId, CandidateId, PlayerId, PromiseId, VoterId } from '../src/types/ids';
+import type { AgendaId, CandidateId, PartyId, PlayerId, PromiseId, VoterId } from '../src/types/ids';
 import type { DrawPiles, GameState } from '../src/types/state';
 
 /** §4 카드 수량(21/30/48/15/30/30/16)을 그대로 따르는 placeholder 덱 */
@@ -28,18 +28,35 @@ export function emptyCatalog(): CardCatalog {
 const PLACEHOLDER_TRACKS = ['economy', 'labor', 'society', 'industry', 'foreign'] as const;
 const PLACEHOLDER_GROUPS = ['laborers', 'youth', 'seniors'] as const;
 
+/** 테스트용 정당 7개 id — 실카드와 같은 party-01..party-07 체계 */
+export const TEST_PARTIES: PartyId[] = ['party-01', 'party-02', 'party-03', 'party-04', 'party-05', 'party-06', 'party-07'];
+
 /**
  * testDecks()의 placeholder ID 전체에 대응하는 카드 내용을 결정적으로 채운 카탈로그.
  * 통합 테스트(1라운드 완주)처럼 어떤 카드가 뽑히든 내용 조회가 성공해야 하는 시나리오에서 사용한다.
+ * 개편안 A(정당 선택→손패)를 통과해야 하므로 후보 21명을 7개 정당에 3명씩 배정하고 정당 카드도 채운다.
  * 실카드 데이터(packages/data)와의 통합은 data 쪽 engineIntegration.test.ts가 검증한다.
  */
 export function placeholderCatalog(): CardCatalog {
   const catalog = emptyCatalog();
+  catalog.parties = {};
+  TEST_PARTIES.forEach((partyId, i) => {
+    catalog.parties![partyId] = {
+      id: partyId,
+      name: `정당${i + 1}`,
+      description: '테스트',
+      color: '#888888',
+      passiveAdvantage: '없음',
+      passiveDisadvantage: '없음',
+      passives: [],
+    };
+  });
   buildPlaceholderIds<CandidateId>('candidate', 21).forEach((id, i) => {
     catalog.candidates[id] = {
       id,
       name: `후보${i}`,
       description: '테스트',
+      party: TEST_PARTIES[i % 7]!,
       baseVotes: (i % 5) + 2,
       leaningTags: [`성향${i % 3}`],
       supportedVoterGroups: [PLACEHOLDER_GROUPS[i % 3]!],
@@ -83,14 +100,48 @@ export function placeholderCatalog(): CardCatalog {
   return catalog;
 }
 
-/** startGame 후 자동 진행 가능한 phase를 끝까지 밟아 auctionBidding에 멈춘 상태를 만든다 (Skill 4+ 테스트 공용) */
+/** reduce를 실행하고 실패 시 즉시 throw하는 헬퍼 — fixture 준비 단계 공용 */
+function mustReduce(state: GameState, action: Parameters<typeof reduce>[1], catalog: CardCatalog, label: string): GameState {
+  const result = reduce(state, action, catalog);
+  if (!result.ok) throw new Error(`fixture 준비 실패(${label}): ${result.reason}`);
+  return result.state;
+}
+
+/**
+ * 개편안 A·B: partySelection(전원 정당 선택)과 candidateProposal(전원 후보 1명 제안)을 통과시킨다.
+ * 정당은 좌석 순서대로 서로 다른 정당(party-01부터)에 가입시키고, 제안은 손패 첫 장을 낸다 — 전부 결정적.
+ */
+export function walkThroughPartyAndProposal(state: GameState, catalog: CardCatalog): GameState {
+  let current = state;
+  if (current.phase === 'partySelection') {
+    current.players.forEach((p, i) => {
+      current = mustReduce(current, { type: 'selectParty', actor: p.id, partyId: TEST_PARTIES[i % TEST_PARTIES.length]! }, catalog, 'selectParty');
+    });
+    current = mustReduce(current, { type: 'runUntilPlayerAction' }, catalog, 'partySelection 이후 진행');
+  }
+  if (current.phase === 'candidateProposal') {
+    for (const p of current.players) {
+      const hand = current.players.find((x) => x.id === p.id)!.hand;
+      if (current.round.proposals[p.id] || hand.length === 0) continue;
+      current = mustReduce(current, { type: 'proposeCandidate', actor: p.id, candidateId: hand[0]! }, catalog, 'proposeCandidate');
+    }
+    current = mustReduce(current, { type: 'runUntilPlayerAction' }, catalog, 'candidateProposal 이후 진행');
+  }
+  return current;
+}
+
+/**
+ * startGame 후 정당 선택·후보 제안까지 밟아 auctionBidding에 멈춘 상태를 만든다 (Skill 4+ 테스트 공용).
+ * 개편안 A 이후 이 경로는 카드 내용(정당·후보 소속) 조회가 필요해 placeholderCatalog를 사용한다.
+ */
 export function setupAtAuction(seed: number, playerNames: string[]): GameState {
-  const state = setupGame({ seed, players: playerNames.map((name) => ({ name })), decks: testDecks() });
-  const started = reduce(state, { type: 'startGame' }, emptyCatalog());
-  if (!started.ok) throw new Error(`fixture 준비 실패: ${started.reason}`);
-  const advanced = reduce(started.state, { type: 'runUntilPlayerAction' }, emptyCatalog());
-  if (!advanced.ok) throw new Error('fixture 준비 실패: runUntilPlayerAction');
-  return advanced.state;
+  const catalog = placeholderCatalog();
+  let state = setupGame({ seed, players: playerNames.map((name) => ({ name })), decks: testDecks() });
+  state = mustReduce(state, { type: 'startGame' }, catalog, 'startGame');
+  state = mustReduce(state, { type: 'runUntilPlayerAction' }, catalog, 'startGame 이후 진행');
+  state = walkThroughPartyAndProposal(state, catalog);
+  if (state.phase !== 'auctionBidding') throw new Error(`fixture 준비 실패: auctionBidding 진입 (실제 phase=${state.phase})`);
+  return state;
 }
 
 /** placeBid를 실행하고 결과 상태를 반환한다. 실패하면 테스트를 즉시 실패시킨다 */

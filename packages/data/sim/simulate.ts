@@ -53,7 +53,30 @@ export function simulateGame(seed: number, catalog: CardCatalog): SimulationResu
 
   // 무한 루프 방지 안전장치 — 5라운드 기준으로도 넉넉한 상한
   for (let guard = 0; guard < 2000 && state.phase !== 'gameEnd'; guard += 1) {
-    if (state.phase === 'auctionBidding') {
+    if (state.phase === 'partySelection') {
+      // 개편안 A: 정원(2명)이 남은 정당 중 무작위로 가입한다
+      for (const player of state.players) {
+        if (player.party) continue;
+        const current = state.players.find((p) => p.id === player.id)!;
+        if (current.party) continue;
+        const counts = new Map<string, number>();
+        for (const p of state.players) {
+          if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
+        }
+        const open = Object.values(catalog.parties ?? {}).filter((party) => (counts.get(party.id) ?? 0) < 2);
+        state = step(state, { type: 'selectParty', actor: player.id, partyId: bot.pick(open).id }, catalog);
+      }
+      state = step(state, { type: 'runUntilPlayerAction' }, catalog);
+    } else if (state.phase === 'candidateProposal') {
+      // 개편안 B: 손패에서 무작위 후보 1명을 제안한다 (손패가 빈 플레이어는 자동 면제)
+      for (const player of state.players) {
+        if (state.phase !== 'candidateProposal') break;
+        const current = state.players.find((p) => p.id === player.id)!;
+        if (state.round.proposals[player.id] || current.hand.length === 0) continue;
+        state = step(state, { type: 'proposeCandidate', actor: player.id, candidateId: bot.pick(current.hand) }, catalog);
+      }
+      if (state.phase === 'candidateProposal') state = step(state, { type: 'runUntilPlayerAction' }, catalog);
+    } else if (state.phase === 'auctionBidding') {
       for (const player of state.players) {
         if (state.round.bids[player.id]?.confirmed) continue;
         const target = bot.pick(state.round.candidatesRevealed);
@@ -66,7 +89,11 @@ export function simulateGame(seed: number, catalog: CardCatalog): SimulationResu
         if (state.phase !== 'promiseSelection') break;
         const camp = state.round.camps[candidateId];
         if (!camp?.majorBacker || camp.promiseId) continue;
-        const promiseId = bot.pick(camp.promiseOptions);
+        // 정당 노선 제한(개편안 A)에 걸리는 카드는 reducer가 거부한다 — 합법인 옵션 중에서만 무작위로 고른다
+        const legalOptions = camp.promiseOptions.filter(
+          (promiseId) => reduce(state, { type: 'selectPromise', actor: camp.majorBacker!, candidateId, promiseId }, catalog).ok,
+        );
+        const promiseId = bot.pick(legalOptions.length > 0 ? legalOptions : camp.promiseOptions);
         state = step(state, { type: 'selectPromise', actor: camp.majorBacker, candidateId, promiseId }, catalog);
       }
       if (state.phase === 'promiseSelection') state = step(state, { type: 'autoSelectPromises' }, catalog);

@@ -125,7 +125,28 @@ function electionEffectAction(state: GameState, catalog: CardCatalog, actor: Pla
   ]);
 }
 
+function partySelectionAction(state: GameState, catalog: CardCatalog, actor: PlayerId): GameAction | null {
+  const counts = new Map<string, number>();
+  for (const p of state.players) {
+    if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
+  }
+  for (const party of Object.values(catalog.parties ?? {})) {
+    if ((counts.get(party.id) ?? 0) < 2) {
+      return legalAction(state, catalog, [{ type: 'selectParty', actor, partyId: party.id }]);
+    }
+  }
+  return null;
+}
+
+function candidateProposalAction(state: GameState, catalog: CardCatalog, actor: PlayerId): GameAction | null {
+  const player = state.players.find((p) => p.id === actor);
+  if (!player || player.hand.length === 0) return null;
+  return legalAction(state, catalog, [{ type: 'proposeCandidate', actor, candidateId: player.hand[0]! }]);
+}
+
 function chooseAiAction(state: GameState, catalog: CardCatalog, actor: PlayerId): GameAction | null {
+  if (state.phase === 'partySelection') return partySelectionAction(state, catalog, actor);
+  if (state.phase === 'candidateProposal') return candidateProposalAction(state, catalog, actor);
   if (state.phase === 'auctionBidding') return auctionAction(state, catalog, actor);
   if (state.phase === 'promiseSelection') return promiseAction(state, catalog, actor);
   if (state.phase === 'campaignActions') return campaignAction(state, catalog, actor);

@@ -4,9 +4,11 @@ import type { PlayerAction, SystemAction } from './types/actions';
 
 export type PhaseId =
   | 'setup'
+  | 'partySelection'
   | 'income'
-  | 'issueReveal'
-  | 'candidateReveal'
+  | 'firstIssueReveal'
+  | 'candidateProposal'
+  | 'secondIssueReveal'
   | 'auctionBidding'
   | 'auctionResolved'
   | 'promiseSelection'
@@ -22,9 +24,11 @@ export type PhaseId =
 
 export const PHASE_ORDER: readonly PhaseId[] = [
   'setup',
+  'partySelection',
   'income',
-  'issueReveal',
-  'candidateReveal',
+  'firstIssueReveal',
+  'candidateProposal',
+  'secondIssueReveal',
   'auctionBidding',
   'auctionResolved',
   'promiseSelection',
@@ -50,9 +54,11 @@ export interface PhaseDefinition {
 // §7: 플레이어 결정 단계(입찰/공약/캠페인/단일화/선택형 당선효과) vs 시스템 자동 진행 단계
 export const PHASES: Readonly<Record<PhaseId, PhaseDefinition>> = {
   setup: { id: 'setup', requiresPlayerDecision: false, description: '게임 초기화' },
+  partySelection: { id: 'partySelection', requiresPlayerDecision: true, description: '정당 선택' },
   income: { id: 'income', requiresPlayerDecision: false, description: '수입 지급' },
-  issueReveal: { id: 'issueReveal', requiresPlayerDecision: false, description: '사회 이슈 공개' },
-  candidateReveal: { id: 'candidateReveal', requiresPlayerDecision: false, description: '후보 마켓 공개' },
+  firstIssueReveal: { id: 'firstIssueReveal', requiresPlayerDecision: false, description: '선공개 이슈 2장' },
+  candidateProposal: { id: 'candidateProposal', requiresPlayerDecision: true, description: '후보 제안' },
+  secondIssueReveal: { id: 'secondIssueReveal', requiresPlayerDecision: false, description: '공개 이슈 2장' },
   auctionBidding: { id: 'auctionBidding', requiresPlayerDecision: true, description: '후보 경매' },
   auctionResolved: { id: 'auctionResolved', requiresPlayerDecision: false, description: '경매 정산' },
   promiseSelection: { id: 'promiseSelection', requiresPlayerDecision: true, description: '공약 선택' },
@@ -89,6 +95,8 @@ export function getNextPhase(current: PhaseId, round: number, maxRounds: number)
 
 /** §20 플레이어 액션이 유효한 phase — 이 표를 벗어난 호출은 reducer가 ok:false로 거부한다 */
 export const PLAYER_ACTION_PHASE: Readonly<Record<PlayerAction['type'], PhaseId>> = {
+  selectParty: 'partySelection',
+  proposeCandidate: 'candidateProposal',
   placeBid: 'auctionBidding',
   confirmAuctionBids: 'auctionBidding',
   selectPromise: 'promiseSelection',
@@ -99,6 +107,7 @@ export const PLAYER_ACTION_PHASE: Readonly<Record<PlayerAction['type'], PhaseId>
   reportScandal: 'campaignActions',
   conditionalSupport: 'campaignActions',
   assignVoterChoice: 'campaignActions',
+  changeParty: 'campaignActions',
   proposeUnification: 'unification',
   acceptUnification: 'unification',
   declineUnification: 'unification',
@@ -114,8 +123,8 @@ export const PLAYER_ACTION_PHASE: Readonly<Record<PlayerAction['type'], PhaseId>
 /** §19 시스템 액션이 유효한 phase (지정 없으면 여러 phase에서 허용) */
 export const SYSTEM_ACTION_PHASE: Readonly<Partial<Record<SystemAction['type'], PhaseId>>> = {
   startGame: 'setup',
-  revealIssue: 'issueReveal',
-  revealCandidates: 'candidateReveal',
+  revealFirstIssues: 'firstIssueReveal',
+  revealSecondIssues: 'secondIssueReveal',
   generateRandomBids: 'auctionBidding',
   resolveAuction: 'auctionBidding',
   autoSelectPromises: 'promiseSelection',
@@ -133,8 +142,8 @@ export const SYSTEM_ACTION_PHASE: Readonly<Partial<Record<SystemAction['type'], 
  */
 export type AutoActionType =
   | 'advancePhase'
-  | 'revealIssue'
-  | 'revealCandidates'
+  | 'revealFirstIssues'
+  | 'revealSecondIssues'
   | 'revealVoters'
   | 'resolveVoting'
   | 'resolvePolicy'
@@ -143,8 +152,8 @@ export type AutoActionType =
 
 export const AUTO_PHASE_ACTION: Readonly<Partial<Record<PhaseId, AutoActionType>>> = {
   income: 'advancePhase',
-  issueReveal: 'revealIssue',
-  candidateReveal: 'revealCandidates',
+  firstIssueReveal: 'revealFirstIssues',
+  secondIssueReveal: 'revealSecondIssues',
   auctionResolved: 'advancePhase',
   voterReveal: 'revealVoters',
   voting: 'resolveVoting',

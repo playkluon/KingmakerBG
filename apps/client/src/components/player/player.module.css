@@ -523,6 +523,104 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Party Selection Panel ── */
+.partyList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.partyCard {
+  background: var(--bg-panel);
+  border: 2px solid;
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.partyCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.partyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.partyHeader h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+.partyCount {
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.partyDesc {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin-bottom: 12px;
+  flex: 1;
+}
+
+.partyPassives {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.passiveAdvantage {
+  color: var(--accent-success);
+  margin-bottom: 4px;
+}
+
+.passiveDisadvantage {
+  color: var(--accent-danger);
+}
+
+.myPartyInfo {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid var(--accent-success);
+  border-radius: 8px;
+  color: var(--text-main);
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+/* ── Candidate Proposal Panel ── */
+.handContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.handCardWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 @media (max-width: 720px) {
   .banner {
     padding: 8px 12px;

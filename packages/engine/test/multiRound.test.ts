@@ -5,14 +5,12 @@
 import { describe, expect, it } from 'vitest';
 import { reduce } from '../src/reducer';
 import { setupGame } from '../src/setup';
-import { getPlayerCountConfig } from '../src/constants';
 import type { GameAction } from '../src/types/actions';
 import type { PlayerId } from '../src/types/ids';
 import type { GameState } from '../src/types/state';
-import { placeholderCatalog, testDecks } from './fixtures';
+import { placeholderCatalog, testDecks, walkThroughPartyAndProposal } from './fixtures';
 
 const PLAYERS4 = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
-const REVEALED_CANDIDATES = getPlayerCountConfig(4).revealedCandidates;
 
 /**
  * 4인 maxRounds라운드를 결정적 액션 시퀀스로 끝까지 완주한다.
@@ -34,14 +32,16 @@ function playFullGame(seed: number, maxRounds = 5): { state: GameState; revealed
   step({ type: 'runUntilPlayerAction' });
 
   while (state.phase !== 'gameEnd') {
+    // 라운드 1은 정당 선택부터, 라운드 2+는 후보 제안부터 — 개편안 A·B의 결정 지점을 통과시킨다
+    state = walkThroughPartyAndProposal(state, catalog);
     expect(state.phase).toBe('auctionBidding');
     revealedCountsPerRound.push(state.round.candidatesRevealed.length);
 
-    const [c0, c1, c2, c3] = state.round.candidatesRevealed;
-    step({ type: 'placeBid', actor: 'player-0', allocations: { [c0!]: 6 } });
-    step({ type: 'placeBid', actor: 'player-1', allocations: { [c1!]: 4 } });
-    step({ type: 'placeBid', actor: 'player-2', allocations: { [c2!]: 3 } });
-    step({ type: 'placeBid', actor: 'player-3', allocations: { [c3!]: 2 } });
+    const revealed = state.round.candidatesRevealed;
+    const amounts = [6, 4, 3, 2] as const;
+    (['player-0', 'player-1', 'player-2', 'player-3'] as const).forEach((actor, i) => {
+      step({ type: 'placeBid', actor, allocations: { [revealed[i % revealed.length]!]: amounts[i]! } });
+    });
     for (const actor of ['player-0', 'player-1', 'player-2', 'player-3'] as const) {
       step({ type: 'confirmAuctionBids', actor });
     }
@@ -91,9 +91,11 @@ describe('M5 관문: 4인 5라운드(기본 maxRounds) 완주', () => {
     expect(state.round.round).toBe(5);
     expect(state.roundHistory).toHaveLength(5);
 
-    // 부록 A-14: 매 라운드 공개 후보 수가 항상 설정값(4인=5장)과 같다 — 덱이 모자라 덜 뽑힌 라운드가 없다
+    // 개편안 B: 공개 후보 수 = 제안한 플레이어 수. 정당 후보가 전부 당선되어 손패가 마른 플레이어는
+    // 제안을 건너뛸 수 있으므로(진행 불가 방지) 라운드가 갈수록 줄어들 수는 있지만, 0이 되어 멈추지는 않는다.
     expect(revealedCountsPerRound).toHaveLength(5);
-    expect(revealedCountsPerRound.every((n) => n === REVEALED_CANDIDATES)).toBe(true);
+    expect(revealedCountsPerRound[0]).toBe(PLAYERS4.length);
+    expect(revealedCountsPerRound.every((n) => n >= 1)).toBe(true);
 
     // 라운드 히스토리 전부 당선자·표가 기록된다
     for (const entry of state.roundHistory) {

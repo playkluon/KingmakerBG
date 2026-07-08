@@ -5,6 +5,8 @@
 // 카드 내용이 필요 없는 액션(대부분의 시스템 액션, placeBid 등)은 catalog를 사용하지 않는다.
 import { applyConfirmAuctionBids, applyPlaceBid } from './rules/auction';
 import { applySelectPromise } from './rules/promise';
+import { applySelectParty, applyChangeParty } from './rules/party';
+import { applyProposeCandidate } from './rules/proposal';
 import {
   applyConditionalSupport,
   applyContactVoter,
@@ -60,6 +62,12 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
   }
 
   switch (action.type) {
+    case 'selectParty':
+      return applySelectParty(state, action, catalog);
+    case 'proposeCandidate':
+      return applyProposeCandidate(state, action, catalog);
+    case 'changeParty':
+      return applyChangeParty(state, action, catalog);
     case 'placeBid':
       return applyPlaceBid(state, action);
     case 'confirmAuctionBids':
@@ -69,13 +77,13 @@ function applyPlayerAction(state: GameState, action: PlayerAction, catalog: Card
     case 'contactVoter':
       return applyContactVoter(state, action, catalog);
     case 'runAd':
-      return applyRunAd(state, action);
+      return applyRunAd(state, action, catalog);
     case 'pressurePolicy':
       return applyPressurePolicy(state, action, catalog);
     case 'fundraise':
       return applyFundraise(state, action, catalog);
     case 'reportScandal':
-      return applyReportScandal(state, action);
+      return applyReportScandal(state, action, catalog);
     case 'conditionalSupport':
       return applyConditionalSupport(state, action);
     case 'assignVoterChoice':

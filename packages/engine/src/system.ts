@@ -11,8 +11,10 @@ import type { AutoActionType } from './phases';
 import { createInitialRoundState } from './roundState';
 import { applyResolveAuctionAction } from './rules/auction';
 import { computeFinalResult } from './rules/finalScoring';
+import { computePartyHand } from './rules/party';
 import { applyResolvePolicyAction } from './rules/policy';
 import { applyAutoSelectPromisesAction } from './rules/promise';
+import { isProposalPhaseComplete } from './rules/proposal';
 import { applyScoreRoundAction } from './rules/roundScoring';
 import { applyRunUnificationTestAction } from './rules/unification';
 import { applyRevealVotersAction } from './rules/voters';
@@ -20,7 +22,7 @@ import { applyResolveVotingAction } from './rules/voting';
 import type { ReduceResult } from './result';
 import type { CardCatalog } from './types/cards';
 import type { AuctionMode, SystemAction } from './types/actions';
-import type { CandidateId, PromiseId } from './types/ids';
+import type { IssueId, PromiseId } from './types/ids';
 import type { ActionLogEntry, EffectDescriptor, GameState, RoundHistoryEntry } from './types/state';
 
 const ok = (state: GameState, entry: ActionLogEntry): ReduceResult => ({ ok: true, state, log: [entry] });
@@ -44,10 +46,10 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
       return applySetAuctionMode(state, action.mode);
     case 'advancePhase':
       return applyAdvancePhase(state);
-    case 'revealIssue':
-      return applyRevealIssue(state);
-    case 'revealCandidates':
-      return applyRevealCandidates(state);
+    case 'revealFirstIssues':
+      return applyRevealFirstIssues(state, catalog);
+    case 'revealSecondIssues':
+      return applyRevealSecondIssues(state, catalog);
     case 'nextRound':
       return applyNextRound(state, catalog);
     case 'runSystemStep':
@@ -80,8 +82,10 @@ export function applySystemAction(state: GameState, action: SystemAction, catalo
 function applyStartGame(state: GameState): ReduceResult {
   const phaseError = checkExpectedPhase(state, 'startGame');
   if (phaseError) return fail(phaseError);
-  const entry = createLogEntry(state, 'setup', null, 'startGame', '게임을 시작합니다');
-  const next: GameState = { ...appendLog(state, entry), phase: 'income' };
+  const entry = createLogEntry(state, 'setup', null, 'startGame', '게임을 시작합니다 — 먼저 가입할 정당을 선택하세요');
+  // 개편안 A: 게임 시작 직후 정당 선택 phase로 들어간다 — 예전처럼 income으로 바로 가면
+  // 정당·손패가 영영 배정되지 않아 candidateProposal에서 진행 불가가 된다.
+  const next: GameState = { ...appendLog(state, entry), phase: getNextPhase('setup', state.round.round, state.maxRounds) };
   return ok(next, entry);
 }
 
@@ -146,67 +150,110 @@ function applyIncome(state: GameState): ReduceResult {
   return ok(next, entry);
 }
 
-function applyRevealIssue(state: GameState): ReduceResult {
-  const phaseError = checkExpectedPhase(state, 'revealIssue');
+/**
+ * 개편안 A: 이슈 공개 시 발동하는 정당 패시브(issueTagOrganizationGain)를 적용한다.
+ * 예전에는 issue-05·party-04를 하드코딩해 "환경 이슈"가 issue-05 한 장으로 고정되는 버그가 있었다 —
+ * 지금은 공개된 이슈의 targetTag와 정당 패시브의 targetTag를 카탈로그 기준으로 비교한다.
+ */
+function applyIssueRevealPassives(
+  state: GameState,
+  catalog: CardCatalog,
+  revealed: readonly string[],
+  effects: EffectDescriptor[],
+): GameState['players'] {
+  const revealedTags = new Set(
+    revealed.map((id) => catalog.issues[id as IssueId]?.advantage?.targetTag).filter((tag): tag is string => tag != null),
+  );
+  if (revealedTags.size === 0) return state.players;
+
+  return state.players.map((p) => {
+    const passives = p.party ? (catalog.parties?.[p.party]?.passives ?? []) : [];
+    const gain = passives
+      .filter((x): x is Extract<(typeof passives)[number], { kind: 'issueTagOrganizationGain' }> => x.kind === 'issueTagOrganizationGain')
+      .filter((x) => revealedTags.has(x.targetTag))
+      .reduce((sum, x) => sum + x.amount, 0);
+    if (gain <= 0) return p;
+    effects.push({ target: p.id, field: 'organization', delta: gain });
+    return { ...p, organization: p.organization + gain };
+  });
+}
+
+function applyRevealFirstIssues(state: GameState, catalog: CardCatalog): ReduceResult {
+  const phaseError = checkExpectedPhase(state, 'revealFirstIssues');
   if (phaseError) return fail(phaseError);
   const deck = [...state.drawPiles.issueDeck];
-  const issueId = deck.shift() ?? null;
-  const nextPhase = getNextPhase('issueReveal', state.round.round, state.maxRounds);
+  const firstIssues = deck.splice(0, 2);
+
+  const effects: EffectDescriptor[] = [{ target: 'game', field: 'firstIssues', after: firstIssues.length }];
+  const players = applyIssueRevealPassives(state, catalog, firstIssues, effects);
+
+  const nextPhase = getNextPhase('firstIssueReveal', state.round.round, state.maxRounds);
   const entry = createLogEntry(
     state,
-    'issueReveal',
+    'firstIssueReveal',
     null,
-    'revealIssue',
-    issueId ? '이슈가 공개되었습니다' : '공개할 이슈가 남아있지 않습니다',
-    issueId ? [{ target: 'game', field: 'issueId', after: issueId }] : [],
+    'revealFirstIssues',
+    `사전 이슈 ${firstIssues.length}장이 공개되었습니다`,
+    effects,
+  );
+  let next: GameState = {
+    ...appendLog(state, entry),
+    players,
+    round: { ...state.round, firstIssues },
+    drawPiles: { ...state.drawPiles, issueDeck: deck },
+    phase: nextPhase,
+  };
+  // 극단 케이스 방어: 전원 손패가 비어 제안할 사람이 아무도 없으면 candidateProposal을 건너뛴다
+  if (next.phase === 'candidateProposal' && isProposalPhaseComplete(next)) {
+    next = { ...next, phase: getNextPhase('candidateProposal', next.round.round, next.maxRounds) };
+  }
+  return ok(next, entry);
+}
+
+function applyRevealSecondIssues(state: GameState, catalog: CardCatalog): ReduceResult {
+  const phaseError = checkExpectedPhase(state, 'revealSecondIssues');
+  if (phaseError) return fail(phaseError);
+  const deck = [...state.drawPiles.issueDeck];
+  const secondIssues = deck.splice(0, 2);
+
+  const effects: EffectDescriptor[] = [{ target: 'game', field: 'secondIssues', after: secondIssues.length }];
+  const players = applyIssueRevealPassives(state, catalog, secondIssues, effects);
+
+  const nextPhase = getNextPhase('secondIssueReveal', state.round.round, state.maxRounds);
+  const entry = createLogEntry(
+    state,
+    'secondIssueReveal',
+    null,
+    'revealSecondIssues',
+    `사후 반전 이슈 ${secondIssues.length}장이 공개되었습니다`,
+    effects,
   );
   const next: GameState = {
     ...appendLog(state, entry),
-    round: { ...state.round, issueId },
+    players,
+    round: { ...state.round, secondIssues },
     drawPiles: { ...state.drawPiles, issueDeck: deck },
     phase: nextPhase,
   };
   return ok(next, entry);
 }
 
-function applyRevealCandidates(state: GameState): ReduceResult {
-  const phaseError = checkExpectedPhase(state, 'revealCandidates');
-  if (phaseError) return fail(phaseError);
-  const config = getPlayerCountConfig(state.players.length);
-  const deck = [...state.drawPiles.candidateDeck];
-  const revealed = deck.splice(0, config.revealedCandidates);
-  const nextPhase = getNextPhase('candidateReveal', state.round.round, state.maxRounds);
-  const entry = createLogEntry(
-    state,
-    'candidateReveal',
-    null,
-    'revealCandidates',
-    `후보 ${revealed.length}명이 공개되었습니다`,
-    [{ target: 'game', field: 'candidatesRevealed', after: revealed.length }],
-  );
-  const next: GameState = {
-    ...appendLog(state, entry),
-    round: { ...state.round, candidatesRevealed: revealed },
-    drawPiles: { ...state.drawPiles, candidateDeck: deck },
-    phase: nextPhase,
-  };
-  return ok(next, entry);
-}
-
 /**
- * 부록 A-14: 당선되지 않은 후보/선택되지 않은 공약을 각 덱 맨 아래로 되돌린다.
- * 라운드당 영구 소모를 후보 1장(당선자)·공약 3장(출마 후보 수만큼)으로 묶어 두어
- * 인원수·라운드 수와 무관하게 21장/30장 안에서 항상 충분하게 만든다.
+ * 부록 A-14(개편 반영): 선택되지 않은 공약과 이번 라운드 이슈 4장을 각 덱 맨 아래로 되돌린다.
+ * - 공약: 라운드당 영구 소모를 출마 후보 수(3장)로 묶어 30장 안에서 항상 충분하게 만든다.
+ * - 이슈: 라운드당 4장씩 5라운드면 20장이 필요해 16장 덱이 4라운드 만에 바닥난다 —
+ *   지나간 이슈는 다시 부각될 수 있다는 해석으로 덱 맨 아래로 되돌려 재사용한다.
+ * - 후보: 손패 방식(개편안 A)에서는 덱이 아니라 nextRound의 손패 재계산이 회수를 담당한다.
  * 추가 셔플 없이 결정된 순서 그대로 돌려보내 RNG 상태를 소비하지 않는다(결정성 유지).
  */
-function recycleUnusedCards(round: GameState['round']): { candidates: CandidateId[]; promises: PromiseId[] } {
-  const candidates = round.candidatesRevealed.filter((id) => id !== round.winnerCandidateId);
+function recycleUnusedCards(round: GameState['round']): { promises: PromiseId[]; issues: IssueId[] } {
   const promises = round.candidatesRunning.flatMap((id) => {
     const camp = round.camps[id];
     if (!camp) return [];
     return camp.promiseOptions.filter((promiseId) => promiseId !== camp.promiseId);
   });
-  return { candidates, promises };
+  const issues = [...round.firstIssues, ...round.secondIssues];
+  return { promises, issues };
 }
 
 /**
@@ -240,7 +287,7 @@ function applyNextRound(state: GameState, catalog: CardCatalog): ReduceResult {
     isLastRound ? '게임이 종료되었습니다 — 최종 점수를 공개합니다' : `${nextRoundNumber}라운드를 시작합니다`,
   );
 
-  const { candidates: returningCandidates, promises: returningPromises } = recycleUnusedCards(state.round);
+  const { promises: returningPromises, issues: returningIssues } = recycleUnusedCards(state.round);
 
   let next: GameState = {
     ...appendLog(state, entry),
@@ -249,10 +296,19 @@ function applyNextRound(state: GameState, catalog: CardCatalog): ReduceResult {
     round: isLastRound ? state.round : createInitialRoundState(nextRoundNumber),
     drawPiles: {
       ...state.drawPiles,
-      candidateDeck: [...state.drawPiles.candidateDeck, ...returningCandidates],
       promiseDeck: [...state.drawPiles.promiseDeck, ...returningPromises],
+      issueDeck: [...state.drawPiles.issueDeck, ...returningIssues],
     },
   };
+
+  if (!isLastRound) {
+    // 개편안 A: 손패는 라운드마다 "내 정당 후보 - 소모된 후보(역대 당선자)"로 재계산한다.
+    // 제안됐지만 낙선한 후보는 이렇게 손패로 되돌아온다 — 3장 손패로 5라운드를 버티는 근거.
+    next = {
+      ...next,
+      players: next.players.map((p) => (p.party ? { ...p, hand: computePartyHand(next, catalog, p.party) } : p)),
+    };
+  }
 
   if (isLastRound) {
     // finalResult는 히스토리가 확정된 다음 상태를 기준으로 계산한다 (candidateWon류가 마지막 라운드도 봐야 하므로)

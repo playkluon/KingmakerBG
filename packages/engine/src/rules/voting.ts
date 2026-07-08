@@ -5,8 +5,8 @@ import { getNextPhase } from '../phases';
 import { resolveElectionEffectEntry } from './electionEffects';
 import { computeVoterSupport, computeVoterVotes } from './voters';
 import type { ReduceResult } from '../result';
-import type { CardCatalog } from '../types/cards';
-import type { CandidateId } from '../types/ids';
+import type { CandidateCard, CardCatalog } from '../types/cards';
+import type { CandidateId, PolicyDirection, PolicyTrackId } from '../types/ids';
 import type { GameState } from '../types/state';
 
 const fail = (reason: string): ReduceResult => ({ ok: false, reason });
@@ -18,6 +18,7 @@ export interface VoteBreakdown {
   campaign: number;
   voter: number;
   transfer: number;
+  issueBonus: number;
   total: number;
 }
 
@@ -34,7 +35,50 @@ function promiseVoteBonus(state: GameState, catalog: CardCatalog, candidateId: C
   return 0;
 }
 
-/** §13 최종 표 합산 — ①기본 ②공약 ③캠페인 ④유권자 배정 ⑤단일화 이전. 순수 함수 */
+/** §6 트랙+방향 → 반응 태그 파생 규칙 — packages/data/src/tags.ts의 tagFor와 동일한 값 (엔진 외부 의존성 0 원칙상 중복 정의) */
+const REACTION_TAG_BY_TRACK: Record<PolicyTrackId, Record<PolicyDirection, string>> = {
+  economy: { [-1]: 'economy-welfare', [1]: 'economy-market' },
+  labor: { [-1]: 'labor-workerRights', [1]: 'labor-corporate' },
+  society: { [-1]: 'society-liberty', [1]: 'society-order' },
+  industry: { [-1]: 'industry-environment', [1]: 'industry-growth' },
+  foreign: { [-1]: 'foreign-openness', [1]: 'foreign-protection' },
+};
+
+/**
+ * 후보의 "정치 노선" 태그 — 당선 효과(§14)가 움직이려는 정책 방향에서 파생한다.
+ * (leaningTags는 '개혁' 같은 한국어 플레이버 태그라 이슈 targetTag와 비교할 수 없다 —
+ * 예전 구현이 이 둘을 직접 비교해 이슈 버프가 후보 쪽에서는 절대 발동하지 않는 버그가 있었다.)
+ */
+export function candidateReactionTags(candidate: CandidateCard | undefined): string[] {
+  if (!candidate) return [];
+  const effect = candidate.electionEffect;
+  if (effect.kind === 'fixedPolicyMove') return [REACTION_TAG_BY_TRACK[effect.track][effect.direction]];
+  if (effect.kind === 'choosePolicyMove') return effect.options.map((o) => REACTION_TAG_BY_TRACK[o.track][o.direction]);
+  return [];
+}
+
+/** 개편안 B: 공개된 이슈 4장과 매칭되는 후보의 표 보너스 합계 — 후보 노선 태그 또는 선택된 공약 계열로 판정 */
+function computeIssueVoteBonus(state: GameState, catalog: CardCatalog, candidateId: CandidateId): number {
+  let bonus = 0;
+  const candidate = catalog.candidates[candidateId];
+  if (!candidate) return 0;
+  const candidateTags = new Set(candidateReactionTags(candidate));
+  const promiseId = state.round.camps[candidateId]?.promiseId;
+  const promiseReaction = promiseId ? catalog.promises[promiseId]?.reactionTag : null;
+
+  const allIssues = [...state.round.firstIssues, ...state.round.secondIssues];
+
+  for (const issueId of allIssues) {
+    const advantage = catalog.issues[issueId]?.advantage;
+    if (!advantage) continue;
+    if (candidateTags.has(advantage.targetTag) || promiseReaction === advantage.targetTag) {
+      bonus += advantage.voteBonus;
+    }
+  }
+  return bonus;
+}
+
+/** §13 최종 표 합산 — ①기본 ②공약 ③캠페인 ④유권자 배정 ⑤단일화 이전 ⑥이슈보너스. 순수 함수 */
 export function computeVoteBreakdown(state: GameState, catalog: CardCatalog): Partial<Record<CandidateId, VoteBreakdown>> {
   const voterVotes = computeVoterVotes(state, catalog);
   const breakdown: Partial<Record<CandidateId, VoteBreakdown>> = {};
@@ -45,7 +89,8 @@ export function computeVoteBreakdown(state: GameState, catalog: CardCatalog): Pa
     const campaign = state.round.campaignVotes[candidateId] ?? 0;
     const voter = voterVotes[candidateId] ?? 0;
     const transfer = state.round.unificationTransfers[candidateId] ?? 0;
-    breakdown[candidateId] = { base, promise, campaign, voter, transfer, total: base + promise + campaign + voter + transfer };
+    const issueBonus = computeIssueVoteBonus(state, catalog, candidateId);
+    breakdown[candidateId] = { base, promise, campaign, voter, transfer, issueBonus, total: base + promise + campaign + voter + transfer + issueBonus };
   }
   return breakdown;
 }

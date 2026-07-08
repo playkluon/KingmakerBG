@@ -9,6 +9,8 @@ import { EventHand } from './EventHand';
 import { PromisePicker } from './PromisePicker';
 import { SecretPactPanel } from './SecretPactPanel';
 import { UnificationPanel } from './UnificationPanel';
+import { PartySelectionPanel } from './PartySelectionPanel';
+import { CandidateProposalPanel } from './CandidateProposalPanel';
 import board from '../board/board.module.css';
 import styles from './player.module.css';
 
@@ -19,6 +21,10 @@ interface ActionPanelProps {
 
 export function ActionPanel({ state, myPlayerId }: ActionPanelProps) {
   switch (state.phase) {
+    case 'partySelection':
+      return <PartySelectionPanel state={state} myPlayerId={myPlayerId} />;
+    case 'candidateProposal':
+      return <CandidateProposalPanel state={state} myPlayerId={myPlayerId} />;
     case 'auctionBidding':
       return <BidPanel state={state} myPlayerId={myPlayerId} />;
     case 'promiseSelection':

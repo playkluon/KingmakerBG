@@ -2,7 +2,7 @@
 // zod 스키마: CandidateCard, PromiseCard, VoterCard, IssueCard, EventCard, SecretAgendaCard.
 // 효과/조건은 자유 텍스트가 아니라 판별 가능한 유니온으로 정의한다 (SKILL.md 규칙).
 import { z } from 'zod';
-import type { AgendaId, CandidateId, EventId, IssueId, PromiseId, VoterId } from '@kingmakers/engine';
+import type { AgendaId, CandidateId, EventId, IssueId, PromiseId, VoterId, PartyId } from '@kingmakers/engine';
 import { POLICY_REACTION_TAGS, VOTER_GROUPS, type PolicyReactionTag, type VoterGroupKey } from './tags';
 
 // ── 기본 도메인 스키마 ────────────────────────────────────────
@@ -25,6 +25,7 @@ export const VoterIdSchema = idSchema<VoterId>('voter');
 export const IssueIdSchema = idSchema<IssueId>('issue');
 export const EventIdSchema = idSchema<EventId>('event');
 export const AgendaIdSchema = idSchema<AgendaId>('agenda');
+export const PartyIdSchema = idSchema<PartyId>('party');
 
 const PolicyMoveSchema = z.object({
   track: PolicyTrackIdSchema,
@@ -55,10 +56,42 @@ export const CandidateAbilitySchema = z.discriminatedUnion('kind', [
 ]);
 export type CandidateAbility = z.infer<typeof CandidateAbilitySchema>;
 
+// 정당 패시브 (개편안 A) — 엔진 PartyPassive와 1:1 대응하는 판별 가능한 유니온.
+// 자유 텍스트(passiveAdvantage/Disadvantage)는 UI 표시용이고, 규칙은 이 구조화된 값만 사용한다.
+export const PartyPassiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('actionCostDelta'),
+    action: z.enum(['contactVoter', 'runAd', 'pressurePolicy', 'reportScandal']),
+    resource: z.enum(['money', 'organization']),
+    delta: z.number().int().refine((n) => n !== 0, { message: '0이 될 수 없습니다' }),
+  }),
+  z.object({ kind: z.literal('fundraiseYieldDelta'), delta: z.number().int().refine((n) => n !== 0, { message: '0이 될 수 없습니다' }) }),
+  z.object({ kind: z.literal('adReputationGain'), amount: z.number().int().positive() }),
+  z.object({ kind: z.literal('conditionalSupportBonusMoney'), amount: z.number().int().positive() }),
+  z.object({ kind: z.literal('issueTagOrganizationGain'), targetTag: PolicyReactionTagSchema, amount: z.number().int().positive() }),
+  z.object({ kind: z.literal('promiseTagMoneyCost'), tags: z.array(PolicyReactionTagSchema).min(1), amount: z.number().int().positive() }),
+  z.object({ kind: z.literal('promiseTagReputationLoss'), tags: z.array(PolicyReactionTagSchema).min(1), amount: z.number().int().positive() }),
+  z.object({ kind: z.literal('promiseTagRestriction'), tags: z.array(PolicyReactionTagSchema).min(1) }),
+]);
+export type PartyPassive = z.infer<typeof PartyPassiveSchema>;
+
+export const PartyCardSchema = z.object({
+  id: PartyIdSchema,
+  name: z.string().min(1),
+  description: z.string().min(1),
+  /** CSS에서 그대로 쓸 수 있는 hex 색상 (예: #1e40af) — 'blue-800' 같은 토큰명은 화면에서 색으로 렌더되지 않는다 */
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, { message: 'hex 색상(#rrggbb)이어야 합니다' }),
+  passiveAdvantage: z.string().min(1),
+  passiveDisadvantage: z.string().min(1),
+  passives: z.array(PartyPassiveSchema).min(1),
+});
+export type PartyCard = z.infer<typeof PartyCardSchema>;
+
 export const CandidateCardSchema = z.object({
   id: CandidateIdSchema,
   name: z.string().min(1),
   description: z.string().min(1),
+  party: PartyIdSchema,
   /** §8, §13: 후보 기본 표 */
   baseVotes: z.number().int().positive(),
   /** §12 단일화 "후보 성향이 충돌하지 않음" 판정에 쓰이는 이념 태그 */
@@ -107,11 +140,15 @@ export const VoterCardSchema = z.object({
 });
 export type VoterCard = z.infer<typeof VoterCardSchema>;
 
-// ── IssueCard (§4: 공개 정보 중심, 효과 확장은 후순위) ──────────
+// ── IssueCard (개편안 B: 이슈는 표심에만 영향을 준다 — VP 보너스를 두지 않는다) ──────────
 export const IssueCardSchema = z.object({
   id: IssueIdSchema,
   name: z.string().min(1),
   description: z.string().min(1),
+  advantage: z.object({
+    targetTag: PolicyReactionTagSchema,
+    voteBonus: z.number().int().min(0),
+  }).optional(),
 });
 export type IssueCard = z.infer<typeof IssueCardSchema>;
 

@@ -265,7 +265,7 @@ export function CandidateBoard({ state, myPlayerId }: CandidateBoardProps) {
   );
 }
 
-function RevealedCandidateCard({ id }: { id: CandidateId }) {
+export function RevealedCandidateCard({ id }: { id: CandidateId }) {
   const card = candidateById.get(id);
   return (
     <Tooltip content={<CandidateAbilitiesTooltip abilities={card?.abilities ?? []} />}>

@@ -122,15 +122,34 @@ async function act(roomId: string, sender: { socket: ClientSocket; token: string
   return result.view;
 }
 
+/**
+ * 개편안 A·B: 전원 정당 선택(좌석 순 party-01..) + 손패 첫 장 제안을 소켓 액션으로 통과시켜
+ * auctionBidding에 도달한 뷰를 반환한다 — 서버가 각 액션 직후 자동 진행을 이어붙인다 (부록 A-13).
+ */
+async function walkPartyAndProposal(roomId: string, participants: Participant[]): Promise<GameState> {
+  let view!: GameState;
+  for (const p of participants) {
+    const seat = Number(p.playerId.split('-')[1] ?? 0);
+    view = await act(roomId, p, { type: 'selectParty', actor: p.playerId, partyId: `party-0${(seat % 7) + 1}` });
+  }
+  for (const p of participants) {
+    const attach = await emitAck<{ view: GameState }>(p.socket, 'room:attach', { roomId, token: p.token });
+    const mine = attach.view.players.find((x) => x.id === p.playerId)!;
+    if (attach.view.round.proposals[p.playerId] || mine.hand.length === 0) continue;
+    view = await act(roomId, p, { type: 'proposeCandidate', actor: p.playerId, candidateId: mine.hand[0]! });
+  }
+  return view;
+}
+
 describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
   it('방 생성→입장→ready→start→1라운드 완주 (경매→공약→캠페인→단일화→투표→정산→2라운드)', async () => {
     clearRooms();
     const { roomId, hostToken, host, participants } = await setupStartedRoom();
 
-    // ── 시작 직후: auctionBidding + 마스킹 검증 ─────────────────
+    // ── 시작 직후: partySelection(개편안 A) + 마스킹 검증 ─────────
     const attach0 = await emitAck<{ view: GameState }>(participants[0]!.socket, 'room:attach', { roomId, token: participants[0]!.token });
     let view = attach0.view;
-    expect(view.phase).toBe('auctionBidding');
+    expect(view.phase).toBe('partySelection');
     // 덱·seed·RNG는 어느 시점에도 노출되지 않는다
     expect(view.drawPiles.candidateDeck).toHaveLength(0);
     expect(view.seed).toBe(0);
@@ -141,6 +160,12 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     for (const other of view.players.filter((p) => p.id !== me.id)) {
       expect(other.secretAgendaId).toBeNull();
     }
+
+    // ── 정당 선택 → 사전 이슈 → 후보 제안 → 반전 이슈 → 경매 진입 ──
+    view = await walkPartyAndProposal(roomId, participants);
+    expect(view.phase).toBe('auctionBidding');
+    expect(view.round.firstIssues).toHaveLength(2);
+    expect(view.round.secondIssues).toHaveLength(2);
 
     // ── 경매: 서로 다른 후보에 6/4/3/2 입찰 ─────────────────────
     const candidates = view.round.candidatesRevealed;
@@ -219,9 +244,10 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
       view = await act(roomId, backer, { type: 'selectElectionPolicyMove', actor: backer.playerId, ...choice });
     }
 
-    // 1라운드가 끝나고 2라운드 경매에 도달한다 (풀게임 5라운드 기본)
+    // 1라운드가 끝나고 2라운드의 첫 결정 지점(후보 제안 — 개편안 B)에 도달한다 (풀게임 5라운드 기본)
     expect(view.round.round).toBe(2);
-    expect(view.phase).toBe('auctionBidding');
+    expect(view.phase).toBe('candidateProposal');
+    expect(view.round.firstIssues).toHaveLength(2); // 사전 이슈 2장은 이미 공개된 상태
     expect(view.roundHistory).toHaveLength(1);
     expect(view.roundHistory[0]!.winnerCandidateId).not.toBeNull();
   });
@@ -299,9 +325,8 @@ describe('M4 서버 E2E: 방 흐름·마스킹·권한·재접속', () => {
     clearRooms();
     const { roomId, hostToken, host, participants } = await setupStartedRoom();
 
-    // campaignActions까지 진입 (경매 → 공약)
-    const attach0 = await emitAck<{ view: GameState }>(participants[0]!.socket, 'room:attach', { roomId, token: participants[0]!.token });
-    let view = attach0.view;
+    // campaignActions까지 진입 (정당 선택·후보 제안 → 경매 → 공약)
+    let view = await walkPartyAndProposal(roomId, participants);
     const candidates = view.round.candidatesRevealed;
     const amounts = [6, 4, 3, 2];
     for (let i = 0; i < 4; i += 1) {
@@ -569,6 +594,23 @@ describe('부록 A-23: AI 참가자 옵션', () => {
     expect(started.ok).toBe(true);
     await hostView;
 
+    // 개편안 A·B: AI는 정당 선택·후보 제안을 자동으로 마치지만, 사람 호스트 몫은 직접 밟아야 경매로 진입한다
+    const hostAttach = await emitAck<{ myPlayerId: PlayerId | null; view: GameState }>(host, 'room:attach', { roomId, token: hostToken });
+    expect(hostAttach.myPlayerId).not.toBeNull();
+    const myId = hostAttach.myPlayerId!;
+    const counts = new Map<string, number>();
+    for (const p of hostAttach.view.players) {
+      if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
+    }
+    const openParty = (['party-01', 'party-02', 'party-03', 'party-04', 'party-05', 'party-06', 'party-07'] as const).find(
+      (id) => (counts.get(id) ?? 0) < 2,
+    )!;
+    let view = await act(roomId, { socket: host, token: hostToken }, { type: 'selectParty', actor: myId, partyId: openParty });
+    expect(view.phase).toBe('candidateProposal');
+    const myHand = view.players.find((p) => p.id === myId)!.hand;
+    view = await act(roomId, { socket: host, token: hostToken }, { type: 'proposeCandidate', actor: myId, candidateId: myHand[0]! });
+    expect(view.phase).toBe('auctionBidding');
+
     const roomAfterStart = getRoom(roomId)!;
     const aiPlayerIds = roomAfterStart.players.filter((p) => p.isAi).map((p) => p.playerId!);
     expect(aiPlayerIds).toHaveLength(3);
@@ -576,9 +618,7 @@ describe('부록 A-23: AI 참가자 옵션', () => {
       expect(roomAfterStart.game!.round.bids[aiPlayerId]?.confirmed).toBe(true);
     }
 
-    const hostAttach = await emitAck<{ myPlayerId: PlayerId | null; view: GameState }>(host, 'room:attach', { roomId, token: hostToken });
-    expect(hostAttach.myPlayerId).not.toBeNull();
-    const view = await act(roomId, { socket: host, token: hostToken }, { type: 'confirmAuctionBids', actor: hostAttach.myPlayerId! });
+    view = await act(roomId, { socket: host, token: hostToken }, { type: 'confirmAuctionBids', actor: myId });
     expect(view.phase).not.toBe('auctionBidding');
 
     const pending = getPendingDecision(getRoom(roomId)!.game!);

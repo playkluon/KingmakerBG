@@ -4,12 +4,14 @@ import { AGENDAS } from '../src/agendas';
 import { CANDIDATES } from '../src/candidates';
 import { CANDIDATE_EVENTS } from '../src/candidateEvents';
 import { ISSUES } from '../src/issues';
+import { PARTIES } from '../src/parties';
 import { PROMISES } from '../src/promises';
 import {
   AgendaConditionSchema,
   CandidateCardSchema,
   EventCardSchema,
   IssueCardSchema,
+  PartyCardSchema,
   PromiseCardSchema,
   SecretAgendaCardSchema,
   VoterCardSchema,
@@ -24,14 +26,15 @@ function expectUniqueIds(items: Array<{ id: string }>, label: string) {
 }
 
 describe('§4 카드 수량', () => {
-  it('후보 21 / 공약 30 / 유권자 48 / 이슈 15 / 후보이벤트 30 / 유권자이벤트 30 / 의제 16', () => {
+  it('후보 21 / 공약 30 / 유권자 48 / 이슈 16 / 후보이벤트 30 / 유권자이벤트 30 / 의제 16 / 정당 7', () => {
     expect(CANDIDATES).toHaveLength(21);
     expect(PROMISES).toHaveLength(30);
     expect(VOTERS).toHaveLength(48);
-    expect(ISSUES).toHaveLength(15);
+    expect(ISSUES).toHaveLength(16);
     expect(CANDIDATE_EVENTS).toHaveLength(30);
     expect(VOTER_EVENTS).toHaveLength(30);
     expect(AGENDAS).toHaveLength(16);
+    expect(PARTIES).toHaveLength(7);
   });
 });
 
@@ -54,6 +57,23 @@ describe('zod 파싱 + ID 유일성', () => {
   it('모든 이슈 카드가 스키마를 통과하고 ID가 유일하다', () => {
     ISSUES.forEach((i) => expect(() => IssueCardSchema.parse(i)).not.toThrow());
     expectUniqueIds(ISSUES, 'issue');
+  });
+
+  it('모든 정당 카드가 스키마를 통과하고 ID가 유일하다 (개편안 A)', () => {
+    PARTIES.forEach((p) => expect(() => PartyCardSchema.parse(p)).not.toThrow());
+    expectUniqueIds(PARTIES, 'party');
+  });
+
+  it('후보 21명이 7개 정당에 정확히 3명씩 소속된다 (개편안 A — 손패 균형의 근거)', () => {
+    const partyIds = new Set(PARTIES.map((p) => p.id));
+    const counts = new Map<string, number>();
+    for (const c of CANDIDATES) {
+      expect(partyIds.has(c.party), c.id + '의 party가 실존 정당이 아님: ' + c.party).toBe(true);
+      counts.set(c.party, (counts.get(c.party) ?? 0) + 1);
+    }
+    for (const partyId of partyIds) {
+      expect(counts.get(partyId), partyId + ' 소속 후보 수').toBe(3);
+    }
   });
 
   it('모든 이벤트 카드(후보+유권자)가 스키마를 통과하고 ID가 유일하다', () => {

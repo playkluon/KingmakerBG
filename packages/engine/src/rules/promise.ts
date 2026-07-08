@@ -96,6 +96,25 @@ export function applySelectPromise(
   }
 
   const player = state.players.find((p) => p.id === action.actor)!;
+
+  // 개편안 A: majorBacker 소속 정당의 공약 관련 패시브 — 노선에 어긋나는 공약은 금지되거나 대가를 치른다
+  const partyPassives = player.party ? (catalog.parties?.[player.party]?.passives ?? []) : [];
+  const reaction = promiseCard?.reactionTag;
+  if (reaction) {
+    const bannedTags = new Set(partyPassives.filter((p) => p.kind === 'promiseTagRestriction').flatMap((p) => (p.kind === 'promiseTagRestriction' ? p.tags : [])));
+    if (bannedTags.has(reaction)) {
+      // 제시된 3장 전부가 금지 계열이면 예외적으로 선택을 허용한다 — 그러지 않으면 이 캠프의
+      // 공약 선택이 영원히 끝나지 않는 진행 불가 상태가 된다 (부록 A-20과 같은 취지의 방어).
+      const hasLegalAlternative = camp.promiseOptions.some((id) => {
+        const tag = catalog.promises[id]?.reactionTag;
+        return tag == null || !bannedTags.has(tag);
+      });
+      if (hasLegalAlternative) {
+        const partyName = player.party ? (catalog.parties?.[player.party]?.name ?? player.party) : '소속 정당';
+        return fail(`${partyName}의 노선상 이 계열 공약은 선택할 수 없습니다 (정당 약점)`);
+      }
+    }
+  }
   const updatedCamp: CampState = { ...camp, promiseId: action.promiseId };
   let next: GameState = {
     ...state,
@@ -113,6 +132,26 @@ export function applySelectPromise(
       players: next.players.map((p) => (p.id === action.actor ? { ...p, reputation: clampResourceFloor(p.reputation - repLoss.amount) } : p)),
     };
     effects.push({ target: action.actor, field: 'reputation', delta: -repLoss.amount });
+  }
+
+  // 개편안 A: 정당 노선과 충돌하는 계열의 공약을 고르면 자금/평판 대가를 치른다 (선택 자체는 허용)
+  if (reaction) {
+    for (const passive of partyPassives) {
+      if (passive.kind === 'promiseTagMoneyCost' && passive.tags.includes(reaction)) {
+        next = {
+          ...next,
+          players: next.players.map((p) => (p.id === action.actor ? { ...p, money: clampResourceFloor(p.money - passive.amount) } : p)),
+        };
+        effects.push({ target: action.actor, field: 'money', delta: -passive.amount });
+      }
+      if (passive.kind === 'promiseTagReputationLoss' && passive.tags.includes(reaction)) {
+        next = {
+          ...next,
+          players: next.players.map((p) => (p.id === action.actor ? { ...p, reputation: clampResourceFloor(p.reputation - passive.amount) } : p)),
+        };
+        effects.push({ target: action.actor, field: 'reputation', delta: -passive.amount });
+      }
+    }
   }
 
   const entry = createLogEntry(

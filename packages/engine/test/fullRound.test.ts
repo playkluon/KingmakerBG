@@ -7,7 +7,7 @@ import { setupGame } from '../src/setup';
 import type { GameAction } from '../src/types/actions';
 import type { PlayerId } from '../src/types/ids';
 import type { GameState } from '../src/types/state';
-import { placeholderCatalog, testDecks } from './fixtures';
+import { placeholderCatalog, testDecks, walkThroughPartyAndProposal } from './fixtures';
 
 const PLAYERS4 = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
 
@@ -27,6 +27,8 @@ function playFullRound(seed: number): GameState {
 
   step({ type: 'startGame' });
   step({ type: 'runUntilPlayerAction' });
+  expect(state.phase).toBe('partySelection'); // 결정 지점 0: 정당 선택 (개편안 A)
+  state = walkThroughPartyAndProposal(state, catalog); // 정당 선택 → income → 사전 이슈 → 후보 제안 → 반전 이슈
   expect(state.phase).toBe('auctionBidding'); // 결정 지점 1: 입찰
 
   const [c0, c1, c2, c3] = state.round.candidatesRevealed;
@@ -120,6 +122,9 @@ describe('M3 관문: 4인 1라운드 완주', () => {
   it('다른 seed는 다른 전개를 만들 수 있다 (카드 셔플 확인)', () => {
     const runA = playFullRound(1);
     const runB = playFullRound(999);
-    expect(runA.round.candidatesRevealed).not.toEqual(runB.round.candidatesRevealed);
+    // 후보 제안은 손패(정당 소속) 기준이라 seed 무관 — 셔플 영향은 이슈·유권자 덱에서 확인한다
+    const dealA = [...runA.round.firstIssues, ...runA.round.secondIssues, ...runA.round.votersRevealed];
+    const dealB = [...runB.round.firstIssues, ...runB.round.secondIssues, ...runB.round.votersRevealed];
+    expect(dealA).not.toEqual(dealB);
   });
 });

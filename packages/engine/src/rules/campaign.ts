@@ -6,7 +6,7 @@ import { appendLog, createLogEntry } from '../log';
 import { getNextPhase } from '../phases';
 import { computeVoteBreakdown } from './voting';
 import type { ReduceResult } from '../result';
-import type { CandidateAbility, CardCatalog } from '../types/cards';
+import type { CandidateAbility, CardCatalog, PartyPassive } from '../types/cards';
 import type { GameAction, PlayerAction } from '../types/actions';
 import type { PlayerId } from '../types/ids';
 import type { EffectDescriptor, GameState } from '../types/state';
@@ -29,6 +29,25 @@ function myActiveAbilities(state: GameState, catalog: CardCatalog, actor: Player
     .filter((a) => a.active);
 }
 
+/** actor 소속 정당의 패시브 목록 (개편안 A) — 무소속이거나 카탈로그에 정당 정보가 없으면 빈 배열 */
+export function partyPassivesFor(state: GameState, catalog: CardCatalog, actor: PlayerId): PartyPassive[] {
+  const player = state.players.find((p) => p.id === actor);
+  const party = player?.party ? catalog.parties?.[player.party] : undefined;
+  return party?.passives ?? [];
+}
+
+/** 정당 패시브의 액션 비용 증감 합계 — 양수는 비용 증가, 음수는 할인 */
+function partyCostDelta(
+  passives: PartyPassive[],
+  action: 'contactVoter' | 'runAd' | 'pressurePolicy' | 'reportScandal',
+  resource: 'money' | 'organization',
+): number {
+  return passives
+    .filter((p): p is Extract<PartyPassive, { kind: 'actionCostDelta' }> => p.kind === 'actionCostDelta')
+    .filter((p) => p.action === action && p.resource === resource)
+    .reduce((sum, p) => sum + p.delta, 0);
+}
+
 function fundraiseBonusFor(state: GameState, catalog: CardCatalog, actor: PlayerId): number {
   const ability = myActiveAbilities(state, catalog, actor).find((a) => a.kind === 'fundraiseBonus');
   return ability && ability.kind === 'fundraiseBonus' ? ability.amount : 0;
@@ -45,10 +64,10 @@ function policyPressureDiscountFor(state: GameState, catalog: CardCatalog, actor
 }
 
 /**
- * 턴을 소모하는 6개 캠페인 액션이 공유하는 처리 골격.
+ * 턴을 소모하는 캠페인 액션들이 공유하는 처리 골격 (changeParty 포함 — rules/party.ts가 import).
  * 차례 검증 -> 자원 검증·차감 -> 효과 적용(mutate) -> 로그 -> 라운드로빈 전진 -> 전원 소진 시 단일화로.
  */
-function runTurnAction(
+export function runTurnAction(
   state: GameState,
   actor: PlayerId,
   cost: CampaignActionCost,
@@ -110,7 +129,11 @@ export function applyContactVoter(
   const player = state.players.find((p) => p.id === action.actor)!;
   const voterCard = catalog.voters[action.voterId];
   const discount = voterCard ? voterContactDiscountFor(state, catalog, action.actor, voterCard.group) : 0;
-  const cost: CampaignActionCost = { organization: Math.max(0, (CAMPAIGN_ACTION_COSTS.contactVoter.organization ?? 0) - discount) };
+
+  const passives = partyPassivesFor(state, catalog, action.actor);
+  const costOrg = (CAMPAIGN_ACTION_COSTS.contactVoter.organization ?? 0) - discount + partyCostDelta(passives, 'contactVoter', 'organization');
+  const cost: CampaignActionCost = { organization: Math.max(0, costOrg) };
+  
   const effects: EffectDescriptor[] = [{ target: action.voterId, field: 'influence', delta: 2 }];
 
   return runTurnAction(state, action.actor, cost, 'contactVoter', `${player.name}이(가) 유권자에게 접촉했습니다`, effects, (s) => ({
@@ -128,17 +151,33 @@ export function applyContactVoter(
   }));
 }
 
-export function applyRunAd(state: GameState, action: Extract<PlayerAction, { type: 'runAd' }>): ReduceResult {
+export function applyRunAd(
+  state: GameState,
+  action: Extract<PlayerAction, { type: 'runAd' }>,
+  catalog: CardCatalog,
+): ReduceResult {
   if (!state.round.candidatesRunning.includes(action.candidateId)) return fail('출마하지 않은 후보입니다');
   const player = state.players.find((p) => p.id === action.actor)!;
   const effects: EffectDescriptor[] = [{ target: action.candidateId, field: 'campaignVotes', delta: 2 }];
 
-  return runTurnAction(state, action.actor, CAMPAIGN_ACTION_COSTS.runAd, 'runAd', `${player.name}이(가) 광고를 집행했습니다`, effects, (s) => ({
+  const passives = partyPassivesFor(state, catalog, action.actor);
+  const costMoney = (CAMPAIGN_ACTION_COSTS.runAd.money ?? 0) + partyCostDelta(passives, 'runAd', 'money');
+  const cost: CampaignActionCost = { ...CAMPAIGN_ACTION_COSTS.runAd, money: Math.max(0, costMoney) };
+
+  const repGain = passives
+    .filter((p): p is Extract<PartyPassive, { kind: 'adReputationGain' }> => p.kind === 'adReputationGain')
+    .reduce((sum, p) => sum + p.amount, 0);
+  if (repGain > 0) {
+    effects.push({ target: action.actor, field: 'reputation', delta: repGain });
+  }
+
+  return runTurnAction(state, action.actor, cost, 'runAd', `${player.name}이(가) 광고를 집행했습니다`, effects, (s) => ({
     ...s,
     round: {
       ...s.round,
       campaignVotes: { ...s.round.campaignVotes, [action.candidateId]: (s.round.campaignVotes[action.candidateId] ?? 0) + 2 },
     },
+    players: repGain > 0 ? s.players.map((p) => (p.id === action.actor ? { ...p, reputation: p.reputation + repGain } : p)) : s.players,
   }));
 }
 
@@ -149,7 +188,11 @@ export function applyPressurePolicy(
 ): ReduceResult {
   const player = state.players.find((p) => p.id === action.actor)!;
   const discount = policyPressureDiscountFor(state, catalog, action.actor);
-  const cost: CampaignActionCost = { organization: Math.max(0, (CAMPAIGN_ACTION_COSTS.pressurePolicy.organization ?? 0) - discount) };
+
+  const passives = partyPassivesFor(state, catalog, action.actor);
+  const costOrg = (CAMPAIGN_ACTION_COSTS.pressurePolicy.organization ?? 0) - discount + partyCostDelta(passives, 'pressurePolicy', 'organization');
+  const cost: CampaignActionCost = { organization: Math.max(0, costOrg) };
+  
   const key = action.direction === 1 ? 'plus' : 'minus';
   const effects: EffectDescriptor[] = [{ target: action.track, field: `pressure-${key}`, delta: 1 }];
 
@@ -178,7 +221,12 @@ export function applyFundraise(
   catalog: CardCatalog,
 ): ReduceResult {
   const player = state.players.find((p) => p.id === action.actor)!;
-  const grant = 4 + fundraiseBonusFor(state, catalog, action.actor);
+  const passives = partyPassivesFor(state, catalog, action.actor);
+  const partyYield = passives
+    .filter((p): p is Extract<PartyPassive, { kind: 'fundraiseYieldDelta' }> => p.kind === 'fundraiseYieldDelta')
+    .reduce((sum, p) => sum + p.delta, 0);
+  const grant = Math.max(0, 4 + fundraiseBonusFor(state, catalog, action.actor) + partyYield);
+
   const effects: EffectDescriptor[] = [{ target: action.actor, field: 'money', delta: grant }];
 
   return runTurnAction(state, action.actor, CAMPAIGN_ACTION_COSTS.fundraise, 'fundraise', `${player.name}이(가) 모금했습니다`, effects, (s) => ({
@@ -187,15 +235,23 @@ export function applyFundraise(
   }));
 }
 
-export function applyReportScandal(state: GameState, action: Extract<PlayerAction, { type: 'reportScandal' }>): ReduceResult {
+export function applyReportScandal(
+  state: GameState,
+  action: Extract<PlayerAction, { type: 'reportScandal' }>,
+  catalog: CardCatalog,
+): ReduceResult {
   if (!state.round.candidatesRunning.includes(action.candidateId)) return fail('출마하지 않은 후보입니다');
   const player = state.players.find((p) => p.id === action.actor)!;
   const effects: EffectDescriptor[] = [{ target: action.candidateId, field: 'campaignVotes', delta: -2 }];
 
+  const passives = partyPassivesFor(state, catalog, action.actor);
+  const costMoney = (CAMPAIGN_ACTION_COSTS.reportScandal.money ?? 0) + partyCostDelta(passives, 'reportScandal', 'money');
+  const cost: CampaignActionCost = { ...CAMPAIGN_ACTION_COSTS.reportScandal, money: Math.max(0, costMoney) };
+
   return runTurnAction(
     state,
     action.actor,
-    CAMPAIGN_ACTION_COSTS.reportScandal,
+    cost,
     'reportScandal',
     `${player.name}이(가) 스캔들을 폭로했습니다`,
     effects,

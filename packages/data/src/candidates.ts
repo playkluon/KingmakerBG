@@ -5,6 +5,7 @@ import type { CandidateCard } from './schemas';
 export const CANDIDATES: CandidateCard[] = [
   {
     id: 'candidate-01',
+    party: 'party-02',
     name: '강온유',
     description: '기득권 정치 청산을 내세우는 30대 초선 정치인. 청년층 사이에서 화제성이 높다.',
     baseVotes: 4,
@@ -15,6 +16,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-02',
+    party: 'party-01',
     name: '백도현',
     description: '3선 중진 의원. 오랜 인맥으로 자금 동원에 능한 관록의 조정자.',
     baseVotes: 6,
@@ -31,6 +33,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-03',
+    party: 'party-02',
     name: '문세라',
     description: '노동운동 출신 정치인. 현장 조직력을 앞세워 정계에 입문했다.',
     baseVotes: 5,
@@ -41,6 +44,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-04',
+    party: 'party-07',
     name: '오태준',
     description: '대기업 임원 출신의 경제통. 시장 친화 정책을 전면에 내세운다.',
     baseVotes: 5,
@@ -51,6 +55,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-05',
+    party: 'party-04',
     name: '한지수',
     description: '환경단체 활동가 출신. 기후 위기 대응을 최우선 공약으로 내세운다.',
     baseVotes: 3,
@@ -61,6 +66,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-06',
+    party: 'party-03',
     name: '조병만',
     description: '지역 상공회의소 회장 출신. 지역 개발 공약으로 자영업자층을 결집한다.',
     baseVotes: 5,
@@ -71,6 +77,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-07',
+    party: 'party-01',
     name: '유은채',
     description: '헌법재판관 출신 원로 정치인. 원칙과 절차를 중시하는 안정 지향 후보.',
     baseVotes: 6,
@@ -81,6 +88,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-08',
+    party: 'party-06',
     name: '남궁혁',
     description: '방송 진행자 출신의 포퓰리스트. 직설적 화법으로 지지층을 결집한다.',
     baseVotes: 4,
@@ -91,6 +99,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-09',
+    party: 'party-05',
     name: '서다영',
     description: '청년 스타트업 협회 출신. 규제 완화와 기술 혁신을 내세운다.',
     baseVotes: 4,
@@ -101,6 +110,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-10',
+    party: 'party-06',
     name: '최인호',
     description: '농민단체연합 사무총장. 농어촌 지역 대변을 자임한다.',
     baseVotes: 5,
@@ -111,6 +121,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-11',
+    party: 'party-07',
     name: '권민서',
     description: '외교관 출신 국제통. 개방적 대외 정책을 핵심 의제로 삼는다.',
     baseVotes: 5,
@@ -121,6 +132,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-12',
+    party: 'party-01',
     name: '장미리',
     description: '퇴역 장성 출신. 안보와 질서를 최우선 가치로 내세운다.',
     baseVotes: 6,
@@ -131,6 +143,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-13',
+    party: 'party-04',
     name: '이도경',
     description: '시민단체 연합 대표. 시민 자유와 참여 민주주의를 핵심 가치로 삼는다.',
     baseVotes: 3,
@@ -141,6 +154,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-14',
+    party: 'party-07',
     name: '배정훈',
     description: '대형 건설사 출신 산업통. 대규모 개발 사업을 공약으로 내세운다.',
     baseVotes: 5,
@@ -151,6 +165,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-15',
+    party: 'party-04',
     name: '홍성찬',
     description: '노년층 복지 운동가. 연금과 의료 확대를 핵심 공약으로 삼는다.',
     baseVotes: 4,
@@ -161,6 +176,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-16',
+    party: 'party-05',
     name: '전유진',
     description: '경제학 교수 출신 기술관료. 데이터 기반 정책 설계를 표방한다.',
     baseVotes: 4,
@@ -174,6 +190,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-17',
+    party: 'party-03',
     name: '노건아',
     description: '지역 언론인 출신. 지방 분권과 균형 발전을 핵심 의제로 삼는다.',
     baseVotes: 3,
@@ -184,6 +201,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-18',
+    party: 'party-06',
     name: '심재광',
     description: '보호무역 노선의 산업 원로. 국내 산업 보호를 최우선 가치로 삼는다.',
     baseVotes: 6,
@@ -194,6 +212,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-19',
+    party: 'party-02',
     name: '윤아름',
     description: '청년 노동조합 활동가 출신. 청년 노동권 강화를 공약 1순위로 내세운다.',
     baseVotes: 3,
@@ -204,6 +223,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-20',
+    party: 'party-03',
     name: '고영석',
     description: '재선 시장 출신 행정가. 실무형 안정 행정을 내세우는 중도 후보.',
     baseVotes: 7,
@@ -214,6 +234,7 @@ export const CANDIDATES: CandidateCard[] = [
   },
   {
     id: 'candidate-21',
+    party: 'party-05',
     name: '민세아',
     description: '벤처 창업가 출신. 규제 혁신과 신산업 육성을 핵심 공약으로 삼는다.',
     baseVotes: 4,

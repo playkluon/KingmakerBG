@@ -16,6 +16,7 @@ import { PolicyTracks } from '../components/board/PolicyTracks';
 import { RoundGoals } from '../components/board/RoundGoals';
 import { RoundSummary } from '../components/board/RoundSummary';
 import { VoterBoard } from '../components/board/VoterBoard';
+import { IssueAndPartyBoard } from '../components/board/IssueAndPartyBoard';
 import { ActionPanel } from '../components/player/ActionPanel';
 import { MyResources } from '../components/player/MyResources';
 import { ScoreRoute } from '../components/player/ScoreRoute';
@@ -132,6 +133,7 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
 
           {/* 중앙 패널: 메인 보드 */}
           <div className={styles.playColumn}>
+            <IssueAndPartyBoard state={view} />
             <CandidateBoard state={view} myPlayerId={myPlayerId} />
             <VoterBoard state={view} myPlayerId={myPlayerId} />
             <PolicyTracks state={view} />
@@ -191,7 +193,12 @@ export function PlayerScreen({ roomId }: PlayerScreenProps) {
                 <OnboardingHints phase={view.phase} />
               </>
             )}
-            {mobileTab === 'candidates' && <CandidateBoard state={view} myPlayerId={myPlayerId} />}
+            {mobileTab === 'candidates' && (
+              <>
+                <IssueAndPartyBoard state={view} />
+                <CandidateBoard state={view} myPlayerId={myPlayerId} />
+              </>
+            )}
             {mobileTab === 'voters' && <VoterBoard state={view} myPlayerId={myPlayerId} />}
             {mobileTab === 'policy' && <PolicyTracks state={view} />}
             {mobileTab === 'log' && <ActionLog state={view} />}

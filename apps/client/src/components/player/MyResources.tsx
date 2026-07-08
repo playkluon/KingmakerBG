@@ -2,6 +2,7 @@
 // money/org/rep/VP + 이번 라운드 변화량
 import { useEffect, useRef, useState } from 'react';
 import type { GameState, PlayerId } from '@kingmakers/engine';
+import { CATALOG } from '../../lib/catalog';
 import styles from './player.module.css';
 
 interface MyResourcesProps {
@@ -47,13 +48,26 @@ export function MyResources({ state, myPlayerId }: MyResourcesProps) {
   if (!me) return null;
   const base = roundStartSnapshot ?? me;
 
+  const party = me.party ? CATALOG.parties[me.party] : null;
+
   return (
-    <div className={styles.resourceGrid}>
-      <ResourceItem label="자금" value={me.money} delta={me.money - base.money} />
-      <ResourceItem label="조직력" value={me.organization} delta={me.organization - base.organization} />
-      <ResourceItem label="평판" value={me.reputation} delta={me.reputation - base.reputation} />
-      <ResourceItem label="VP" value={me.victoryPoints} delta={me.victoryPoints - base.victoryPoints} />
-    </div>
+    <>
+      {party && (
+        <div className={styles.myPartyInfo} style={{ borderColor: party.color, marginBottom: '16px' }}>
+          <h3 style={{ color: party.color, margin: '0 0 8px 0' }}>{party.name}</h3>
+          <div style={{ fontSize: '0.85rem' }}>
+            <div style={{ color: 'var(--accent-success)' }}><strong>[강점]</strong> {party.passiveAdvantage}</div>
+            <div style={{ color: 'var(--accent-danger)' }}><strong>[약점]</strong> {party.passiveDisadvantage}</div>
+          </div>
+        </div>
+      )}
+      <div className={styles.resourceGrid}>
+        <ResourceItem label="자금" value={me.money} delta={me.money - base.money} />
+        <ResourceItem label="조직력" value={me.organization} delta={me.organization - base.organization} />
+        <ResourceItem label="평판" value={me.reputation} delta={me.reputation - base.reputation} />
+        <ResourceItem label="VP" value={me.victoryPoints} delta={me.victoryPoints - base.victoryPoints} />
+      </div>
+    </>
   );
 }
 

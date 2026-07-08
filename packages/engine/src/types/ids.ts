@@ -8,6 +8,7 @@ export type VoterId = `voter-${string}`;
 export type IssueId = `issue-${string}`;
 export type EventId = `event-${string}`;
 export type AgendaId = `agenda-${string}`;
+export type PartyId = `party-${string}`;
 
 /**
  * 유권자 그룹 식별자.

@@ -80,10 +80,15 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
   const support = computeVoterSupport(state, catalog);
 
   const vpAwards = new Map<PlayerId, number>();
+  const moneyAwards = new Map<PlayerId, number>();
   const effects: EffectDescriptor[] = [];
   const award = (playerId: PlayerId, amount: number, field: string) => {
     vpAwards.set(playerId, (vpAwards.get(playerId) ?? 0) + amount);
     effects.push({ target: playerId, field, delta: amount });
+  };
+  const awardMoney = (playerId: PlayerId, amount: number) => {
+    moneyAwards.set(playerId, (moneyAwards.get(playerId) ?? 0) + amount);
+    effects.push({ target: playerId, field: 'money', delta: amount });
   };
 
   // 부록 A-16: 비밀 pact 배신 판정을 먼저 정산한다 — VP·마커 반영은 이 결과 위에 이어 붙인다
@@ -93,17 +98,38 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
   const ranked = [...state.round.candidatesRunning].sort((a, b) => (breakdown[b]?.total ?? 0) - (breakdown[a]?.total ?? 0));
   const runnerUp = ranked[1];
 
+  let nextPartyValues = { ...state.partyValues };
+
   if (winner) {
     const camp = state.round.camps[winner];
+    const winnerParty = catalog.candidates[winner]?.party;
+    // 개편안 C: 당선 시점의 "현재" 누적 주가가 배당으로 지급되고, 그 후 주가가 +2 오른다.
+    // 이슈 매칭 보너스는 표(computeIssueVoteBonus)에만 반영된다 — 이슈 카드에 VP를 달지 않는다.
+    const partyValueBonus = winnerParty ? (state.partyValues[winnerParty] ?? 0) : 0;
+
+    // 승리 정당 주가 상승
+    if (winnerParty) {
+      nextPartyValues[winnerParty] = (nextPartyValues[winnerParty] ?? 0) + 2;
+      effects.push({ target: 'game', field: 'partyValue', delta: 2, after: winnerParty });
+    }
+
     if (camp?.majorBacker) {
       award(camp.majorBacker, SCORE_MAJOR_BACKER_WIN, 'majorBackerWin');
       award(camp.majorBacker, SCORE_PROMISE_BONUS_MAJOR_BACKER, 'promiseBonus');
+      if (partyValueBonus > 0) award(camp.majorBacker, partyValueBonus, 'partyValueBonus');
     }
     if (camp?.coBacker) award(camp.coBacker, SCORE_CO_BACKER_WIN, 'coBackerWin');
     if (camp?.organizer) award(camp.organizer, SCORE_ORGANIZER_WIN, 'organizerWin');
 
     for (const supporter of state.round.conditionalSupporters[winner] ?? []) {
       award(supporter, SCORE_CONDITIONAL_SUPPORT_SUCCESS, 'conditionalSupportSuccess');
+      // 개편안 A: 조건부 지지 성공 시 추가 보상을 주는 정당 패시브 — VP가 아니라 자금으로 지급한다
+      const pState = state.players.find((p) => p.id === supporter);
+      const passives = pState?.party ? (catalog.parties?.[pState.party]?.passives ?? []) : [];
+      const moneyBonus = passives
+        .filter((x): x is Extract<(typeof passives)[number], { kind: 'conditionalSupportBonusMoney' }> => x.kind === 'conditionalSupportBonusMoney')
+        .reduce((sum, x) => sum + x.amount, 0);
+      if (moneyBonus > 0) awardMoney(supporter, moneyBonus);
     }
   }
   if (runnerUp) {
@@ -158,6 +184,7 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
 
   const players: PlayerState[] = pactSettlement.players.map((p) => {
     const gained = vpAwards.get(p.id) ?? 0;
+    const moneyGained = moneyAwards.get(p.id) ?? 0;
     const groupGains = markerGains.get(p.id);
     const nextMarkers = { ...p.influenceMarkers };
     if (groupGains) {
@@ -165,7 +192,9 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
         nextMarkers[group] = (nextMarkers[group] ?? 0) + count;
       }
     }
-    return gained === 0 && !groupGains ? p : { ...p, victoryPoints: p.victoryPoints + gained, influenceMarkers: nextMarkers };
+    return gained === 0 && moneyGained === 0 && !groupGains
+      ? p
+      : { ...p, victoryPoints: p.victoryPoints + gained, money: p.money + moneyGained, influenceMarkers: nextMarkers };
   });
 
   // §10 이번 라운드 마커 스냅샷 (cleanup의 RoundHistoryEntry 기록용)
@@ -186,6 +215,7 @@ export function applyScoreRoundAction(state: GameState, catalog: CardCatalog): R
   const next: GameState = {
     ...appendLog(state, entry),
     players,
+    partyValues: nextPartyValues,
     drawPiles: { ...state.drawPiles, voterEventDeck: pactSettlement.voterEventDeck },
     round: {
       ...state.round,

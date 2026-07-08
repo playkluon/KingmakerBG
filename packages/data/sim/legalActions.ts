@@ -64,6 +64,24 @@ function campaignEventActions(state: GameState, actor: PlayerId): GameAction[] {
   return actions;
 }
 
+/** 개편안 A: 정원(2명)이 남은 정당 전부가 선택 후보다 */
+function partySelectionActions(state: GameState, catalog: CardCatalog, actor: PlayerId): GameAction[] {
+  const counts = new Map<string, number>();
+  for (const p of state.players) {
+    if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
+  }
+  return Object.values(catalog.parties ?? {})
+    .filter((party) => (counts.get(party.id) ?? 0) < 2)
+    .map((party): GameAction => ({ type: 'selectParty', actor, partyId: party.id }));
+}
+
+/** 개편안 B: 손패의 모든 후보가 제안 후보다 */
+function proposalActions(state: GameState, actor: PlayerId): GameAction[] {
+  const player = currentPlayer(state, actor);
+  if (!player || state.round.proposals[actor]) return [];
+  return player.hand.map((candidateId): GameAction => ({ type: 'proposeCandidate', actor, candidateId }));
+}
+
 function auctionActions(state: GameState, actor: PlayerId, maxBid: number): GameAction[] {
   const player = currentPlayer(state, actor);
   if (!player || state.round.bids[actor]?.confirmed) return [];
@@ -178,6 +196,12 @@ function electionEffectActions(state: GameState, catalog: CardCatalog, actor: Pl
 
 /** 현재 phase에서 의사결정권을 가진 플레이어 목록을 좌석/룰 순서대로 반환한다. */
 export function getDecisionActors(state: GameState): PlayerId[] {
+  if (state.phase === 'partySelection') {
+    return state.players.filter((p) => p.party === null).map((p) => p.id);
+  }
+  if (state.phase === 'candidateProposal') {
+    return state.players.filter((p) => !state.round.proposals[p.id] && p.hand.length > 0).map((p) => p.id);
+  }
   if (state.phase === 'auctionBidding') {
     return state.players.filter((p) => !state.round.bids[p.id]?.confirmed).map((p) => p.id);
   }
@@ -224,17 +248,21 @@ export function legalActionsForActor(
 ): GameAction[] {
   const maxBid = options.maxBid ?? DEFAULT_MAX_BID;
   const candidates =
-    state.phase === 'auctionBidding'
-      ? auctionActions(state, actor, maxBid)
-      : state.phase === 'promiseSelection'
-        ? promiseActions(state, actor)
-        : state.phase === 'campaignActions'
-          ? campaignActions(state, actor)
-          : state.phase === 'unification'
-            ? unificationActions(state, catalog, actor)
-            : state.phase === 'electionEffectSelection'
-              ? electionEffectActions(state, catalog, actor)
-              : [];
+    state.phase === 'partySelection'
+      ? partySelectionActions(state, catalog, actor)
+      : state.phase === 'candidateProposal'
+        ? proposalActions(state, actor)
+        : state.phase === 'auctionBidding'
+          ? auctionActions(state, actor, maxBid)
+          : state.phase === 'promiseSelection'
+            ? promiseActions(state, actor)
+            : state.phase === 'campaignActions'
+              ? campaignActions(state, actor)
+              : state.phase === 'unification'
+                ? unificationActions(state, catalog, actor)
+                : state.phase === 'electionEffectSelection'
+                  ? electionEffectActions(state, catalog, actor)
+                  : [];
 
   return filterLegalActions(state, catalog, candidates, options.includeReducerRejected ?? false);
 }

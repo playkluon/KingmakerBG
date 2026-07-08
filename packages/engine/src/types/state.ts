@@ -13,6 +13,7 @@ import type {
   PromiseId,
   VoterGroupId,
   VoterId,
+  PartyId,
 } from './ids';
 import type { PhaseId } from '../phases';
 import type { RngState } from '../rng';
@@ -39,6 +40,10 @@ export interface PlayerState {
   voterEventHand: EventId[];
   /** §12 "betrayed-secret-pact" 플래그 — 게임 중 한 번이라도 비밀 pact를 배신하면 true로 고정된다 */
   betrayedSecretPact: boolean;
+  /** 소속 정당 */
+  party: PartyId | null;
+  /** 손패에 들고 있는 후보 카드들 */
+  hand: CandidateId[];
 }
 
 /** 플레이어 1명의 경매 입찰 상태 (§8) */
@@ -134,8 +139,14 @@ export interface PolicyPressure {
 export interface RoundState {
   /** 1-based 라운드 번호 */
   round: number;
-  issueId: IssueId | null;
+  /** 전반전에 선공개된 이슈 2장 */
+  firstIssues: IssueId[];
+  /** 후반전에 공개된 이슈 2장 */
+  secondIssues: IssueId[];
+  /** 플레이어들이 제안(어필)한 출품 후보들 */
   candidatesRevealed: CandidateId[];
+  /** 개편안 B: 플레이어별 이번 라운드 후보 제안 기록 — 1인 1회 제한과 phase 전진 판정의 근거 */
+  proposals: Partial<Record<PlayerId, CandidateId>>;
   /** 경매 정산 후 확정되는 출마 후보 3명 (§8) */
   candidatesRunning: CandidateId[];
   votersRevealed: VoterId[];
@@ -292,6 +303,8 @@ export interface GameState {
   auctionMode: AuctionMode;
   /** §6 정책 트랙 5종, 각 -2..2 */
   policyTracks: Record<PolicyTrackId, number>;
+  /** 각 정당의 누적 가치(주가) */
+  partyValues: Partial<Record<PartyId, number>>;
   actionLog: ActionLogEntry[];
   roundHistory: RoundHistoryEntry[];
   lastRoundResult: RoundResultSummary | null;
