@@ -974,3 +974,15 @@ URL/화면 개념:
 - **정당 주가(개편안 C)**: 당선 시 주요 후원자가 그 시점의 누적 주가만큼 추가 VP(배당)를 받고, 그 후 당선 정당 주가가 +2 오른다. UI 표기는 "N VP"가 아니라 "주가 N" — 주가는 카드에 인쇄된 VP가 아니라 정산 시 배당으로만 작동한다.
 - **탈당(changeParty)은 정식 캠페인 턴 액션**: 차례 검증·라운드로빈 전진·전원 소진 판정을 다른 6종 액션과 동일한 골격(runTurnAction)으로 처리한다. 평판 1은 clamp되는 페널티가 아니라 "비용"이다(평판 0이면 탈당 불가 — 공짜 갈아타기 구멍 방지). 초기 구현은 차례를 무시하고 액션 수만 올려 라운드로빈이 꼬였다.
 - **UI 정합**: 이슈 태그는 `POLICY_REACTION_TAG_LABELS` 한국어 라벨로만 노출(영문 키 노출 금지), 정당 색상은 CSS에서 그대로 쓰이는 hex로 저장('blue-800' 같은 토큰명은 렌더되지 않았다).
+
+### A-25. "2라운드 이후부터 진행 불가" 조사 — 결정할 사람이 없는 phase의 영구 정지 + 클라이언트 버그 2건
+> 사용자 신고("2라운드 이후부터 게임진행이 안되는데 버그 싹 다 잡아줘")를 받아 실서버·실카드로 라이브 재현해 찾았다.
+> 놓친 이유: 엔진 자체 테스트(`walkThroughPartyAndProposal` 등)는 4인을 항상 서로 다른 정당에 배정해 손패 공유·고갈 시나리오를 한 번도 밟지 않았다.
+
+- **근본 원인(엔진)**: `apps/server/aiPlayers.ts`의 정당 선택 AI가 "정원 안 찬 첫 정당"에 그리디하게 가입해, 4인이 정당 2개(최대 2명씩)에만 몰리는 결과가 실전 기본값이었다. 정당당 후보 3장을 2명이 나눠 쓰면 몇 라운드 안에 그 정당 손패가 고갈되고(A-24의 "손패가 빈 플레이어는 면제" 규칙 자체는 정상 동작), 클러스터링이 심하면 `candidatesRevealed`가 0까지 줄어들 수 있다. 실제 재현: 4인이 정당 2개에 2명씩 몰린 최악 케이스에서 6라운드 만에 후보 6명(3+3)이 전부 소모돼 `candidatesRevealed=0`이 됐다.
+- **진짜 버그(엔진)**: `candidatesRunning=0`이거나 출마 후보 전원이 무응찰(majorBacker 전무)이면 `promiseSelection`·`unification`·`electionEffectSelection`이 "결정할 사람이 아무도 없는" 상태로 진입한다. 이 세 phase는 `requiresPlayerDecision: true`라서 `runAutoPhases`가 무조건 멈췄는데, 정작 그 phase에서 액션을 낼 수 있는 사람(플레이어·AI)이 아무도 없어 어떤 소켓 이벤트로도 다시 빠져나올 수 없는 영구 진행 불가였다. `autoSelectPromises`/`runUnificationTest` 같은 "재확인" 시스템 액션은 이미 있었지만 phase 진입 시 자동으로 호출되지 않았다(수동 트리거 전용).
+  - 수정: `system.ts`에 `tryAutoResolveEmptyDecision`을 추가해 `runAutoPhases`가 결정 phase에 도달할 때마다 "정말 액션 낼 사람이 없는지"(`getPendingDecision`) 확인하고, 없으면 대신 처리 후 계속 진행한다. `promiseSelection`→`autoSelectPromises` 재호출, `unification`→`runUnificationTest` 재호출(대기 중인 제안이 없을 때만), `electionEffectSelection`→당선자가 아예 없으면 `policyResolution`으로 직행. 사람이 실제로 결정할 게 남아있으면 절대 건드리지 않는다(`getPendingDecision` actors가 0일 때만 개입).
+  - 회귀 테스트: `packages/engine/test/emptyDecisionRecovery.test.ts` — 정당 2개에 4인을 강제로 몰아 12라운드까지 진행시키고 `gameEnd` 도달을 확인한다(수정 전에는 round 7 `unification`에서 영구 정지하는 것으로 재현·확인함).
+- **재발 방지(AI)**: `aiPlayers.ts`의 정당 선택을 "정원 안 찬 첫 정당"에서 "가입 인원이 가장 적은 정당"으로 변경해, AI가 소수 정당에 몰리지 않고 넓게 퍼지도록 했다. 위 엔진 버그의 트리거 확률 자체를 낮추는 방어 조치다.
+- **클라이언트 버그 1 — 후보자 어필 타임 무기한 대기 가능성**: `CandidatePresentation.tsx`가 음성 재생을 `onended`/`onerror` 콜백에만 의존했는데, 네트워크가 응답 없이 걸리는 등 둘 다 발생하지 않는 경우 다음 후보로 넘어가지 못하고 그 화면에 무기한 머무를 수 있었다(SKIP 버튼을 모르면 게임이 멈춘 것처럼 보임). 후보 1명당 8초 무조건 발동 안전 타임아웃을 추가했다.
+- **클라이언트 버그 2 — 라운드 결과 요약 조기 표시**: `voting`(resolveVoting)이 `lastRoundResult.round`를 즉시 채우지만 `vpBreakdown`은 빈 객체로 남겨두고, 실제 채점은 그 뒤 `electionEffectSelection`(플레이어 결정 대기 가능) → `policyResolution` → `roundScoring`을 거쳐야 채워진다. `RoundSummary.tsx`가 `result.round`만 보고 즉시 떴었기 때문에, 당선 효과를 직접 골라야 하는 라운드에서는 전원 0VP인 가짜 요약이 먼저 뜨고 "확인"을 누르면(같은 round 번호라) 진짜 채점 결과가 그 라운드에서 다시는 뜨지 않았다. `state.roundHistory`에 해당 라운드가 실제로 기록된 뒤(=roundScoring까지 끝난 뒤)에만 보여주도록 고쳤다.

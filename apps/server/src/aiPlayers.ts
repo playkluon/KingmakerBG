@@ -130,12 +130,13 @@ function partySelectionAction(state: GameState, catalog: CardCatalog, actor: Pla
   for (const p of state.players) {
     if (p.party) counts.set(p.party, (counts.get(p.party) ?? 0) + 1);
   }
-  for (const party of Object.values(catalog.parties ?? {})) {
-    if ((counts.get(party.id) ?? 0) < 2) {
-      return legalAction(state, catalog, [{ type: 'selectParty', actor, partyId: party.id }]);
-    }
-  }
-  return null;
+  const open = Object.values(catalog.parties ?? {}).filter((party) => (counts.get(party.id) ?? 0) < 2);
+  if (open.length === 0) return null;
+  // 정당당 후보 3장을 회원끼리 나눠 쓰므로, 이미 회원이 있는 정당보다 아무도 없는 정당을 먼저
+  // 채운다 — 그러지 않으면 AI가 항상 첫 정당부터 채워 소수 정당에만 인원이 몰리고, 그 정당의
+  // 손패(3장)가 몇 라운드 만에 바닥나 후보 제안이 고갈되는 진행 불가 위험이 커진다.
+  const sorted = [...open].sort((a, b) => (counts.get(a.id) ?? 0) - (counts.get(b.id) ?? 0));
+  return legalAction(state, catalog, [{ type: 'selectParty', actor, partyId: sorted[0]!.id }]);
 }
 
 function candidateProposalAction(state: GameState, catalog: CardCatalog, actor: PlayerId): GameAction | null {

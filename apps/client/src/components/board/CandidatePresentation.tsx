@@ -32,22 +32,31 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
       if (handled) return;
       handled = true;
       setIsPlaying(false);
+      if (timeoutId) clearTimeout(timeoutId);
       handleNext();
     };
 
+    // audio.play()가 onended·onerror 어느 쪽도 부르지 않고 무기한 대기 상태로 남는 경우
+    // (네트워크가 응답 없이 걸리는 등) 대비한 무조건 발동 안전장치 — 이게 없으면 후보자 어필
+    // 타임이 영구 정지되어 게임 전체가 멈춘 것처럼 보인다(SKIP 버튼을 모르면 복구 불가).
+    const safetyTimeoutId = window.setTimeout(() => {
+      console.warn(`Presentation stalled for ${currentCandidateId}, forcing advance.`);
+      proceedNext();
+    }, 8000);
+
     const playAudio = async () => {
       const audioUrl = `${import.meta.env.BASE_URL}audio/candidates/${currentCandidateId}.mp3`;
-      
+
       try {
         if (audioRef.current) {
           audioRef.current.pause();
         }
-        
+
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
-        
+
         setIsPlaying(true);
-        
+
         audio.onended = () => proceedNext();
 
         audio.onerror = () => {
@@ -68,6 +77,7 @@ export function CandidatePresentation({ state, onComplete }: CandidatePresentati
 
     return () => {
       handled = true; // Prevent proceedNext from running after unmount
+      clearTimeout(safetyTimeoutId);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

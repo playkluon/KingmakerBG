@@ -19,6 +19,7 @@ import { applyScoreRoundAction } from './rules/roundScoring';
 import { applyRunUnificationTestAction } from './rules/unification';
 import { applyRevealVotersAction } from './rules/voters';
 import { applyResolveVotingAction } from './rules/voting';
+import { getPendingDecision } from './selectors';
 import type { ReduceResult } from './result';
 import type { CardCatalog } from './types/cards';
 import type { AuctionMode, SystemAction } from './types/actions';
@@ -346,6 +347,45 @@ function applyRunSystemStep(state: GameState, catalog: CardCatalog): ReduceResul
 }
 
 /**
+ * 부록 A-25: candidateProposal 손패 고갈 등으로 출마 후보 수가 정상보다 줄어들면,
+ * "플레이어 결정 phase"인데도 실제로는 결정할 사람이 아무도 없는 상태(candidatesRunning=0,
+ * 출마 후보 전원 무응찰, 당선자 없음 등)가 생길 수 있다. requiresPlayerDecision=true라는 이유만으로
+ * runAutoPhases가 여기서 무조건 멈추면, 그 phase는 어떤 플레이어·AI·시스템 액션으로도 다시는
+ * 빠져나올 수 없는 영구 진행 불가 상태가 된다 — 이 함수가 "정말 아무도 할 게 없는지"를 확인하고
+ * 있으면 대신 처리해서 계속 진행시킨다. 사람이 실제로 결정할 게 남아있으면 절대 건드리지 않는다.
+ */
+function tryAutoResolveEmptyDecision(state: GameState, catalog: CardCatalog): { state: GameState; log: ActionLogEntry[] } | null {
+  if (state.phase === 'promiseSelection' && getPendingDecision(state)?.actors.length === 0) {
+    const result = applyAutoSelectPromisesAction(state);
+    return result.ok ? { state: result.state, log: result.log } : null;
+  }
+  if (
+    state.phase === 'unification' &&
+    !state.round.pendingUnificationProposal &&
+    getPendingDecision(state)?.actors.length === 0
+  ) {
+    const result = applyRunUnificationTestAction(state);
+    return result.ok ? { state: result.state, log: result.log } : null;
+  }
+  if (state.phase === 'electionEffectSelection' && !state.round.winnerCandidateId) {
+    // 출마 후보가 아무도 없어 당선자 자체가 없는 라운드 — 고를 당선 효과가 없으니 곧장 넘어간다
+    const entry = createLogEntry(
+      state,
+      'electionEffectSelection',
+      null,
+      'advancePhase',
+      '당선자가 없어 당선 효과 선택을 건너뜁니다',
+    );
+    const next: GameState = {
+      ...appendLog(state, entry),
+      phase: getNextPhase('electionEffectSelection', state.round.round, state.maxRounds),
+    };
+    return { state: next, log: [entry] };
+  }
+  return null;
+}
+
+/**
  * 자동 처리 가능한 phase를 연쇄 진행하고 플레이어 결정 지점에서 멈춘다 (§19).
  * confirmAuctionBids·selectPromise 등 개별 액션은 자기 몫만 처리하고 멈춘다 —
  * 그다음 자동 phase까지 이어서 진행하고 싶을 때 호출자가 이 함수(또는 runUntilPlayerAction 액션)를 별도로 호출한다.
@@ -358,7 +398,13 @@ export function runAutoPhases(state: GameState, catalog: CardCatalog): { state: 
 
   for (let i = 0; i < SAFETY_LIMIT; i += 1) {
     if (current.phase === 'setup' || current.phase === 'gameEnd') break;
-    if (PHASES[current.phase].requiresPlayerDecision) break;
+    if (PHASES[current.phase].requiresPlayerDecision) {
+      const resolved = tryAutoResolveEmptyDecision(current, catalog);
+      if (!resolved || resolved.state.phase === current.phase) break;
+      current = resolved.state;
+      log.push(...resolved.log);
+      continue;
+    }
     const actionType = AUTO_PHASE_ACTION[current.phase];
     if (!actionType) break;
     const result = applySystemAction(current, { type: actionType } as SystemAction, catalog);
